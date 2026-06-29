@@ -1,0 +1,143 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #e2f1e7;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 230px;
+    background: #2f5f3b;
+    color: white;
+    padding: 10px;
+    height: 100vh;
+}
+
+.logo {
+    margin-bottom: 30px;
+}
+
+.menu {
+    list-style: none;
+    padding: 0;
+}
+
+.menu li {
+    margin: 15px 0;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.menu li:hover {
+    background: #3a7a4a;
+}
+
+.menu li.active {
+    background: #1d3b29;
+    font-weight: bold;
+}
+
+.search-box {
+    margin-top: 20px;
+    display: flex;
+}
+
+.search-box input {
+    width: 70%;
+    padding: 6px;
+}
+
+.search-box button {
+    width: 30%;
+}
+
+/* Main area */
+.main {
+    flex: 1;
+    padding: 0;
+}
+
+.topbar {
+    background: #1d3b29;
+    padding: 15px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.issue-btn {
+    background: #3a8f49;
+    border: none;
+    padding: 8px 12px;
+    color: white;
+    border-radius: 5px;
+}
+
+/* Map */
+.map-area {
+    position: relative;
+    height: calc(100vh - 60px);
+}
+
+.map-placeholder {
+    background: #0d1b2a;
+    height: 100%;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Popup */
+.tree-popup {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    background: white;
+    padding: 15px;
+    width: 230px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px #0004;
+}
+
+.tree-popup img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+/* GPS */
+.gps-status {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: white;
+    padding: 10px 15px;
+    border-radius: 50px;
+    box-shadow: 0 0 10px #0004;
+}
+
+/* Dynamic panel */
+.panel {
+    padding: 30px;
+    background: #ffffff;
+    height: calc(100vh - 60px);
+}
+
+.hidden {
+    display: none;
+}
+
+/* Map container fills available map-area space */
+.map-area #map {
+    height: 100%;
+    width: 100%;
+}

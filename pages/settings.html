@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Settings — GreenMap</title>
+    <link rel="stylesheet" href="pages/app-styles.css">
+</head>
+<body>
+
+<h2>Account Settings</h2>
+
+<div class="settings-split">
+
+    <!-- LEFT SIDE -->
+    <div class="settings-left">
+
+        <h3>Profile Information</h3>
+        <div class="form-grid">
+            <label>Full Name</label>
+            <input type="text" placeholder="Juan Dela Cruz">
+
+            <label>Email</label>
+            <input type="email" placeholder="juan@email.com">
+
+            <label>Phone Number</label>
+            <input type="text" placeholder="+63 900 123 4567">
+        </div>
+
+        <button class="save-btn">Save Profile</button>
+
+        <hr>
+
+        <h3>Preferences</h3>
+
+        <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+            Receive email notifications
+        </label>
+
+        <label class="switch">
+            <input type="checkbox">
+            <span class="slider"></span>
+            Enable tracking alerts
+        </label>
+
+    </div>
+
+
+    <!-- RIGHT SIDE -->
+    <div class="settings-right">
+
+        <h3>Change Password</h3>
+
+        <div class="form-grid">
+            <label>Current Password</label>
+            <input type="password">
+
+            <label>New Password</label>
+            <input type="password">
+
+            <label>Confirm New Password</label>
+            <input type="password">
+        </div>
+
+        <button class="save-btn">Update Password</button>
+
+        <hr>
+
+        <button class="danger-btn">Delete Account</button>
+
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,41 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>GreenMap</title>
+        <link rel="stylesheet" href="pages/app-styles.css">
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    </head>
+<body>
+
+    <h2>Add Tree</h2>
+
+    <form class="form-box">
+        <label>Common Name *</label>
+        <input type="text" placeholder="e.g., Mango Tree" required>
+
+        <label>Species Name *</label>
+        <input type="text" placeholder="e.g., Mangifera indica" required>
+
+        <label>Location (Coordinates) *</label>
+        <div style="display: flex; gap: 10px;">
+            <input type="number" placeholder="Latitude" step="0.0001" required>
+            <input type="number" placeholder="Longitude" step="0.0001" required>
+        </div>
+        <small style="color: #666; display: block; margin-top: 5px;">Click on map to auto-fill or enter manually</small>
+
+        <label>Date Planted *</label>
+        <input type="month" required>
+        <small style="color: #666; display: block; margin-top: 5px;">Year Estimate(e.g., 2020-12)</small>
+
+        <label>Active Status</label>
+        <div class="switch">
+            <input type="checkbox" id="active-status">
+            <label for="active-status" style="margin: 0;">Active</label>
+        </div>
+
+        <button type="submit">Add Tree</button>
+    </form>
+
+</body>
+</html>

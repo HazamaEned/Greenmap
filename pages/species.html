@@ -1,0 +1,95 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>GreenMap</title>
+        <link rel="stylesheet" href="pages/app-styles.css">
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    </head>
+<body>
+
+    <h2>Species Lookup</h2>
+
+    <div class="search-row">
+        <input type="text" id="species-search" placeholder="Search species...">
+        <button id="search-btn">Search</button>
+    </div>
+
+    <div class="card-grid">
+        <div class="card">
+            <img src="trees/narra.jpg" alt="Narra">
+            <h3>Narra</h3>
+            <small>Pterocarpus indicus</small>
+        </div>
+
+        <div class="card">
+            <img src="trees/samanea.jpg" alt="Acacia">
+            <h3>Samanea</h3>
+            <small>Samanea saman</small>
+        </div>
+        
+        <div class="card">
+            <img src="trees/agoho.jpg" alt="Agoho">
+            <h3>Agoho</h3>
+            <small>Casuarina equisetifolia</small>
+        </div>
+
+        <div class="card">
+            <img src="trees/bayabas.jpg" alt="Guava">
+            <h3>Guava</h3>
+            <small>Psidium guajava L</small>
+        </div>
+
+        <div class="card">
+            <img src="trees/santol.jpg" alt="Santol">
+            <h3>Santol</h3>
+            <small>Sandoricum koetjape</small>
+        </div>
+
+        <div class="card">
+            <img src="trees/mango.jpg" alt="Mango">
+            <h3>Mango</h3>
+            <small>Mangifera indica L.</small>
+        </div>
+
+        <div class="card">
+            <img src="trees/kamias.jpg" alt="Mango">
+            <h3>Kamias</h3>
+            <small>Averrhoa bilimbi</small>
+        </div>
+
+
+    </div>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+    $(document).ready(function(){
+        // Search function
+        function filterCards(){
+            var searchTerm = $('#species-search').val().toLowerCase();
+            
+            $('.card').each(function(){
+                var cardName = $(this).find('h3').text().toLowerCase();
+                var cardSpecies = $(this).find('small').text().toLowerCase();
+                
+                if(cardName.includes(searchTerm) || cardSpecies.includes(searchTerm) || searchTerm === ''){
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        }
+        
+        // Search on button click
+        $('#search-btn').click(function(){
+            filterCards();
+        });
+        
+        // Search on input change (real-time)
+        $('#species-search').on('keyup', function(){
+            filterCards();
+        });
+    });
+    </script>
+
+</body>
+</html>
