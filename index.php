@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>GreenMap</title>
+    <link rel="icon" type="image/png" href="assets/greenmap-icon-64.png">
+    <link rel="apple-touch-icon" href="assets/greenmap-icon-192.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="pages/app-styles.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -13,7 +15,9 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <span class="brand-mark">GM</span>
+                <span class="brand-mark">
+                    <img src="assets/greenmap-icon.png" alt="">
+                </span>
                 <div>
                     <h1>GreenMap</h1>
                     <small>Pasig tree inventory</small>
