@@ -1,41 +1,41 @@
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>GreenMap</title>
-        <link rel="stylesheet" href="pages/app-styles.css">
-        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    </head>
-<body>
+<section class="view-stack compact-view">
+    <header class="panel-header">
+        <span>Inventory</span>
+        <h2>Add Tree</h2>
+    </header>
 
-    <h2>Add Tree</h2>
+    <form class="form-box" id="add-tree-form">
+        <label class="field">
+            Common Name *
+            <input name="name" type="text" placeholder="Mango Tree" maxlength="80" required>
+        </label>
 
-    <form class="form-box">
-        <label>Common Name *</label>
-        <input type="text" placeholder="e.g., Mango Tree" required>
+        <label class="field">
+            Species Name *
+            <input name="species" type="text" placeholder="Mangifera indica" maxlength="100" required>
+        </label>
 
-        <label>Species Name *</label>
-        <input type="text" placeholder="e.g., Mangifera indica" required>
-
-        <label>Location (Coordinates) *</label>
-        <div style="display: flex; gap: 10px;">
-            <input type="number" placeholder="Latitude" step="0.0001" required>
-            <input type="number" placeholder="Longitude" step="0.0001" required>
-        </div>
-        <small style="color: #666; display: block; margin-top: 5px;">Click on map to auto-fill or enter manually</small>
-
-        <label>Date Planted *</label>
-        <input type="month" required>
-        <small style="color: #666; display: block; margin-top: 5px;">Year Estimate(e.g., 2020-12)</small>
-
-        <label>Active Status</label>
-        <div class="switch">
-            <input type="checkbox" id="active-status">
-            <label for="active-status" style="margin: 0;">Active</label>
+        <div class="field">
+            <span>Location Coordinates *</span>
+            <div class="coordinate-row">
+                <input name="latitude" type="number" placeholder="Latitude" step="any" min="-90" max="90" required>
+                <input name="longitude" type="number" placeholder="Longitude" step="any" min="-180" max="180" required>
+            </div>
+            <small>Map selection, manual entry, or <button type="button" id="use-location" class="link-button">use my location</button>.</small>
         </div>
 
-        <button type="submit">Add Tree</button>
+        <label class="field">
+            Date Planted *
+            <input name="planted" type="month" required>
+            <small>Estimated month is accepted.</small>
+        </label>
+
+        <label class="switch field-inline">
+            <input name="active" type="checkbox" id="active-status" checked>
+            <span class="slider"></span>
+            Active
+        </label>
+
+        <button type="submit" class="primary-action">Add Tree</button>
     </form>
-
-</body>
-</html>
+</section>

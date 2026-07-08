@@ -1,78 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Account Settings — GreenMap</title>
-    <link rel="stylesheet" href="pages/app-styles.css">
-</head>
-<body>
+<section class="view-stack">
+    <header class="panel-header">
+        <span>Account</span>
+        <h2>Settings</h2>
+    </header>
 
-<h2>Account Settings</h2>
+    <div class="settings-split">
+        <section class="section-card">
+            <h3>Profile Information</h3>
+            <form class="form-grid" id="profile-form">
+                <label class="field">
+                    Full Name
+                    <input name="name" type="text" placeholder="Juan Dela Cruz" required>
+                </label>
 
-<div class="settings-split">
+                <label class="field">
+                    Email
+                    <input name="email" type="email" placeholder="juan@email.com" required>
+                </label>
 
-    <!-- LEFT SIDE -->
-    <div class="settings-left">
+                <label class="field">
+                    Phone Number
+                    <input name="phone" type="tel" placeholder="+63 900 123 4567">
+                </label>
 
-        <h3>Profile Information</h3>
-        <div class="form-grid">
-            <label>Full Name</label>
-            <input type="text" placeholder="Juan Dela Cruz">
+                <div class="divider"></div>
 
-            <label>Email</label>
-            <input type="email" placeholder="juan@email.com">
+                <h3>Preferences</h3>
 
-            <label>Phone Number</label>
-            <input type="text" placeholder="+63 900 123 4567">
-        </div>
+                <label class="switch field-inline">
+                    <input name="emailNotifications" type="checkbox" checked>
+                    <span class="slider"></span>
+                    Email notifications
+                </label>
 
-        <button class="save-btn">Save Profile</button>
+                <label class="switch field-inline">
+                    <input name="trackingAlerts" type="checkbox">
+                    <span class="slider"></span>
+                    Tracking alerts
+                </label>
 
-        <hr>
+                <button type="submit" class="primary-action">Save Profile</button>
+            </form>
+        </section>
 
-        <h3>Preferences</h3>
+        <section class="section-card">
+            <h3>Security</h3>
 
-        <label class="switch">
-            <input type="checkbox" checked>
-            <span class="slider"></span>
-            Receive email notifications
-        </label>
+            <div class="form-grid">
+                <label class="field">
+                    Current Password
+                    <input type="password">
+                </label>
 
-        <label class="switch">
-            <input type="checkbox">
-            <span class="slider"></span>
-            Enable tracking alerts
-        </label>
+                <label class="field">
+                    New Password
+                    <input type="password">
+                </label>
 
+                <label class="field">
+                    Confirm New Password
+                    <input type="password">
+                </label>
+            </div>
+
+            <button type="button" class="secondary-action requires-database">Update Password</button>
+            <small class="database-note">Requires database and authentication setup.</small>
+
+            <div class="divider"></div>
+
+            <button type="button" class="danger-btn requires-database">Delete Account</button>
+        </section>
     </div>
-
-
-    <!-- RIGHT SIDE -->
-    <div class="settings-right">
-
-        <h3>Change Password</h3>
-
-        <div class="form-grid">
-            <label>Current Password</label>
-            <input type="password">
-
-            <label>New Password</label>
-            <input type="password">
-
-            <label>Confirm New Password</label>
-            <input type="password">
-        </div>
-
-        <button class="save-btn">Update Password</button>
-
-        <hr>
-
-        <button class="danger-btn">Delete Account</button>
-
-    </div>
-
-</div>
-
-</body>
-</html>
+</section>
