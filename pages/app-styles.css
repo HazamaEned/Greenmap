@@ -415,8 +415,9 @@
 .map-search {
     position: absolute;
     top: 16px;
-    left: 25%;
+    left: auto;
     right: 16px;
+    width: min(620px, calc(75% - 32px));
     z-index: 500;
     display: flex;
     flex-wrap: wrap;
@@ -457,6 +458,7 @@
 @media (max-width: 760px) {
     .map-search {
         position: static;
+        width: auto;
         margin-bottom: 10px;
         max-width: none;
     }
