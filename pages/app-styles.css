@@ -410,3 +410,58 @@
         font-size: 24px;
     }
 }
+
+/* Floating search/filter bar over the map, replacing the old Species Lookup tab. */
+.map-search {
+    position: absolute;
+    top: 16px;
+    left: 25%;
+    right: 16px;
+    z-index: 500;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: 620px;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px #17211c1a;
+}
+
+.map-search input,
+.map-search select {
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--ink);
+    outline: none;
+}
+
+.map-search input {
+    flex: 1 1 200px;
+}
+
+.map-search select {
+    flex: 0 1 160px;
+}
+
+.map-search input:focus,
+.map-search select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #23734d26;
+}
+
+@media (max-width: 760px) {
+    .map-search {
+        position: static;
+        margin-bottom: 10px;
+        max-width: none;
+    }
+
+    .map-search select {
+        flex: 1 1 45%;
+    }
+}

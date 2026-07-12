@@ -29,7 +29,6 @@
                 <ul class="menu">
                     <li data-page="dashboard">Dashboard</li>
                     <li data-page="map" class="active">Map</li>
-                    <li data-page="species">Species Lookup</li>
                     <li data-page="add-tree">Add Tree</li>
                     <li data-page="contributions">My Contributions</li>
                     <li data-page="settings">Settings</li>
@@ -52,6 +51,16 @@
             <section class="map-area" id="map-area">
                 <div id="map"></div>
 
+                <div class="map-search" aria-label="Search and filter trees">
+                    <input type="text" id="map-species-search" placeholder="Search species">
+                    <select id="map-status-filter">
+                        <option value="">All Status</option>
+                    </select>
+                    <select id="map-location-filter">
+                        <option value="">All Barangays</option>
+                    </select>
+                </div>
+
                 <div class="map-legend" aria-label="Map legend">
                     <span><i class="legend-line city"></i>Pasig City</span>
                     <span><i class="legend-line barangay"></i>Barangays</span>
@@ -64,6 +73,8 @@
                     <div class="info">
                         <h3 id="tree-name">Tree Details</h3>
                         <p id="tree-species">Species: -</p>
+                        <p id="tree-status">Status: -</p>
+                        <p id="tree-location">Barangay: -</p>
                         <p id="tree-planted">Planted: -</p>
                         <p id="tree-addedby">Added by: -</p>
                         <button id="close-tree-popup" type="button">Close</button>
@@ -112,6 +123,6 @@
             apiBaseUrl: 'api/'
         };
     </script>
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>

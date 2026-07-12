@@ -8,7 +8,6 @@
     const pageTitles = {
         dashboard: 'Dashboard',
         map: 'Map',
-        species: 'Species Lookup',
         'add-tree': 'Add Tree',
         contributions: 'My Contributions',
         settings: 'Settings'
@@ -24,11 +23,14 @@
 
     const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
+    // `status` is used by the map's Status filter. Set a sensible default for
+    // existing samples - edit as needed.
     const samples = [
         {
             id: 1,
             name: 'Mango Tree',
             species: 'Mangifera indica',
+            status: 'Native',
             lat: 14.5769,
             lon: 121.0848,
             planted: '2012',
@@ -39,6 +41,7 @@
             id: 2,
             name: 'Samanea',
             species: 'Samanea saman',
+            status: 'Introduced',
             lat: 14.5758,
             lon: 121.086,
             planted: '2015',
@@ -49,6 +52,7 @@
             id: 3,
             name: 'Narra',
             species: 'Pterocarpus indicus',
+            status: 'Native',
             lat: 14.5771,
             lon: 121.0868,
             planted: '2008',
@@ -62,6 +66,15 @@
     let boundaryLayer;
     let userMarker;
     let startupLocationRequested = false;
+
+    // Barangay boundary polygons, populated once Overpass data loads. Used to
+    // work out which barangay a tree sits in, so "location" never needs to be
+    // entered by hand.
+    let barangayPolygons = [];
+
+    // tree id -> { marker, tree } so the filter can dim/restore markers
+    // without re-fetching or re-building them.
+    let treeMarkers = new Map();
 
     const treeIcon = () => L.divIcon({
         className: 'greenmap-marker greenmap-tree-marker',
@@ -96,6 +109,34 @@
         toast.timer = setTimeout(() => element.classList.add('hidden'), 3000);
     }
 
+    // --- Point-in-polygon barangay lookup -----------------------------------
+
+    // Standard ray-casting point-in-polygon test. `ring` is an array of
+    // [lat, lon] pairs. This is an approximation (OSM boundary relations can
+    // have multiple ways per ring, which we concatenate in the order Overpass
+    // returns them) but is accurate enough for "which barangay is this tree
+    // roughly in".
+    function pointInRing(lat, lon, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [latI, lonI] = ring[i];
+            const [latJ, lonJ] = ring[j];
+            const intersects = ((lonI > lon) !== (lonJ > lon))
+                && (lat < (latJ - latI) * (lon - lonI) / (lonJ - lonI) + latI);
+            if (intersects) inside = !inside;
+        }
+        return inside;
+    }
+
+    function barangayForPoint(lat, lon) {
+        const match = barangayPolygons.find(polygon => pointInRing(lat, lon, polygon.ring));
+        return match ? match.name : 'Unmapped';
+    }
+
+    function locationForTree(tree) {
+        return barangayForPoint(tree.lat, tree.lon);
+    }
+
     function initMap() {
         if (map || !window.L) return;
 
@@ -109,6 +150,7 @@
         treeLayer = L.layerGroup().addTo(map);
         loadPasigBoundaries();
         markers();
+        setupMapFilters();
         requestStartupLocation();
 
         map.on('click', event => {
@@ -145,6 +187,7 @@
             const data = await response.json();
             const pasigBounds = L.latLngBounds([]);
             boundaryLayer.clearLayers();
+            barangayPolygons = [];
 
             data.elements
                 .filter(element => element.type === 'relation')
@@ -153,6 +196,12 @@
             if (pasigBounds.isValid() && !userMarker) {
                 map.fitBounds(pasigBounds, { padding: [35, 35] });
             }
+
+            // Barangay polygons are ready now - refresh markers/popups/filter
+            // options so trees pick up their computed location.
+            markers();
+            populateMapFilters();
+            applyMapFilters();
         } catch {
             toast('Pasig boundary overlay could not be loaded.');
         }
@@ -167,6 +216,8 @@
             fill: false
         };
 
+        const ringPoints = [];
+
         relation.members
             ?.filter(member => member.type === 'way' && member.geometry?.length)
             .forEach(member => {
@@ -177,22 +228,40 @@
 
                 if (isPasigCity) {
                     pasigBounds.extend(line.getBounds());
+                } else {
+                    ringPoints.push(...coordinates);
                 }
             });
+
+        if (!isPasigCity && ringPoints.length) {
+            barangayPolygons.push({
+                name: relation.tags?.name || 'Barangay',
+                ring: ringPoints
+            });
+        }
     }
 
     function markers() {
         if (!treeLayer) return;
 
         treeLayer.clearLayers();
+        treeMarkers = new Map();
+
         trees().forEach(tree => {
-            L.marker([tree.lat, tree.lon], {
+            const location = locationForTree(tree);
+            const marker = L.marker([tree.lat, tree.lon], {
                 icon: treeIcon(),
                 title: tree.name
             })
                 .addTo(treeLayer)
-                .bindPopup(`<strong>${escapeHtml(tree.name)}</strong><br>${escapeHtml(tree.species)}`)
-                .on('click', () => showTree(tree));
+                .bindPopup(`
+                    <strong>${escapeHtml(tree.name)}</strong><br>
+                    ${escapeHtml(tree.species)}<br>
+                    <small>${escapeHtml(tree.status || 'Unknown')} &middot; ${escapeHtml(location)}</small>
+                `)
+                .on('click', () => showTree(tree, location));
+
+            treeMarkers.set(tree.id, { marker, tree, location });
         });
     }
 
@@ -257,13 +326,84 @@
         locate(null, { startup: true });
     }
 
-    function showTree(tree) {
+    function showTree(tree, location) {
         $('#tree-img').src = tree.img || 'trees/mango.jpg';
         $('#tree-name').textContent = tree.name;
         $('#tree-species').textContent = `Species: ${tree.species}`;
         $('#tree-planted').textContent = `Planted: ${tree.planted}`;
         $('#tree-addedby').textContent = `Added by: ${tree.addedBy}`;
+
+        const statusEl = $('#tree-status');
+        if (statusEl) statusEl.textContent = `Status: ${tree.status || 'Unknown'}`;
+
+        const locationEl = $('#tree-location');
+        if (locationEl) locationEl.textContent = `Barangay: ${location || locationForTree(tree)}`;
+
         $('.tree-popup').classList.remove('hidden');
+    }
+
+    // --- Map search / filter bar ---------------------------------------------
+
+    function populateMapFilters() {
+        const statusFilter = $('#map-status-filter');
+        const locationFilter = $('#map-location-filter');
+        if (!statusFilter || !locationFilter) return;
+
+        const currentStatus = statusFilter.value;
+        const currentLocation = locationFilter.value;
+
+        const statuses = [...new Set(trees().map(tree => tree.status).filter(Boolean))].sort();
+        const locations = [...new Set([...treeMarkers.values()].map(entry => entry.location))].sort();
+
+        statusFilter.innerHTML = '<option value="">All Status</option>'
+            + statuses.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
+
+        locationFilter.innerHTML = '<option value="">All Barangays</option>'
+            + locations.map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
+
+        // Restore whatever the user had selected, if it's still a valid option.
+        if ([...statusFilter.options].some(option => option.value === currentStatus)) {
+            statusFilter.value = currentStatus;
+        }
+        if ([...locationFilter.options].some(option => option.value === currentLocation)) {
+            locationFilter.value = currentLocation;
+        }
+    }
+
+    function applyMapFilters() {
+        const searchInput = $('#map-species-search');
+        const statusFilter = $('#map-status-filter');
+        const locationFilter = $('#map-location-filter');
+        if (!searchInput || !statusFilter || !locationFilter) return;
+
+        const query = searchInput.value.toLowerCase().trim();
+        const status = statusFilter.value;
+        const location = locationFilter.value;
+        const hasActiveFilter = Boolean(query || status || location);
+
+        treeMarkers.forEach(({ marker, tree, location: treeLocation }) => {
+            const haystack = `${tree.name} ${tree.species}`.toLowerCase();
+            const matchesQuery = !query || haystack.includes(query);
+            const matchesStatus = !status || tree.status === status;
+            const matchesLocation = !location || treeLocation === location;
+            const matches = matchesQuery && matchesStatus && matchesLocation;
+
+            marker.setOpacity(!hasActiveFilter || matches ? 1 : 0.25);
+            marker.setZIndexOffset(matches && hasActiveFilter ? 1000 : 0);
+        });
+    }
+
+    function setupMapFilters() {
+        const searchInput = $('#map-species-search');
+        const statusFilter = $('#map-status-filter');
+        const locationFilter = $('#map-location-filter');
+        if (!searchInput || !statusFilter || !locationFilter) return;
+
+        populateMapFilters();
+
+        searchInput.oninput = applyMapFilters;
+        statusFilter.onchange = applyMapFilters;
+        locationFilter.onchange = applyMapFilters;
     }
 
     async function navigate(page) {
@@ -299,10 +439,6 @@
     }
 
     function setup(page) {
-        if (page === 'species') {
-            setupSpecies();
-        }
-
         if (page === 'add-tree') {
             addTree();
         }
@@ -322,24 +458,6 @@
             $('#my-trees').textContent = localTrees.length;
             $('#species-total').textContent = new Set(allTrees.map(tree => tree.species)).size;
         }
-    }
-
-    function setupSpecies() {
-        const filter = () => {
-            const query = $('#species-search').value.toLowerCase().trim();
-            let count = 0;
-
-            $$('.card').forEach(card => {
-                card.hidden = !card.textContent.toLowerCase().includes(query);
-                if (!card.hidden) count++;
-            });
-
-            $('#species-count').textContent = `${count} species found`;
-        };
-
-        $('#species-search').oninput = filter;
-        $('#search-btn').onclick = filter;
-        filter();
     }
 
     function addTree() {
@@ -367,6 +485,10 @@
                 id: Date.now(),
                 name: data.get('name').trim(),
                 species: data.get('species').trim(),
+                // Falls back to 'Native' if your add-tree form doesn't have a
+                // status field yet - add <select name="status"> with
+                // Native/Introduced options to let users set this.
+                status: data.get('status') || 'Native',
                 lat: Number(data.get('latitude')),
                 lon: Number(data.get('longitude')),
                 planted: data.get('planted'),
@@ -377,6 +499,8 @@
 
             write('greenmap.trees', localTrees);
             markers();
+            populateMapFilters();
+            applyMapFilters();
             toast('Tree saved on this device.');
             navigate('contributions');
         };
@@ -411,7 +535,7 @@
                 const tree = localTrees.find(item => item.id == button.dataset.view);
                 navigate('map').then(() => {
                     map.setView([tree.lat, tree.lon], 18);
-                    showTree(tree);
+                    showTree(tree, locationForTree(tree));
                 });
             };
         });
@@ -422,6 +546,8 @@
 
                 write('greenmap.trees', localTrees.filter(tree => tree.id != button.dataset.remove));
                 markers();
+                populateMapFilters();
+                applyMapFilters();
                 contributions();
                 toast('Tree removed.');
             };

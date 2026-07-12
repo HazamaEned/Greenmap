@@ -6,51 +6,17 @@
 
     <div class="search-row">
         <input type="text" id="species-search" placeholder="Search species">
+        <select id="species-status-filter">
+            <option value="">All Status</option>
+        </select>
+        <select id="species-location-filter">
+            <option value="">All Locations</option>
+        </select>
         <button id="search-btn">Search</button>
     </div>
     <p id="species-count" class="result-count" aria-live="polite"></p>
 
-    <div class="card-grid">
-        <article class="card">
-            <img src="trees/narra.jpg" alt="Narra">
-            <h3>Narra</h3>
-            <small>Pterocarpus indicus</small>
-        </article>
-
-        <article class="card">
-            <img src="trees/samanea.jpg" alt="Samanea">
-            <h3>Samanea</h3>
-            <small>Samanea saman</small>
-        </article>
-
-        <article class="card">
-            <img src="trees/agoho.jpg" alt="Agoho">
-            <h3>Agoho</h3>
-            <small>Casuarina equisetifolia</small>
-        </article>
-
-        <article class="card">
-            <img src="trees/bayabas.jpg" alt="Guava">
-            <h3>Guava</h3>
-            <small>Psidium guajava L.</small>
-        </article>
-
-        <article class="card">
-            <img src="trees/santol.jpg" alt="Santol">
-            <h3>Santol</h3>
-            <small>Sandoricum koetjape</small>
-        </article>
-
-        <article class="card">
-            <img src="trees/mango.jpg" alt="Mango">
-            <h3>Mango</h3>
-            <small>Mangifera indica L.</small>
-        </article>
-
-        <article class="card">
-            <img src="trees/kamias.jpg" alt="Kamias">
-            <h3>Kamias</h3>
-            <small>Averrhoa bilimbi</small>
-        </article>
+    <div class="card-grid" id="species-card-grid">
+        <!-- Cards are now rendered dynamically from the speciesData array in app.js -->
     </div>
 </section>
