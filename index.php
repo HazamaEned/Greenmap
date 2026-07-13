@@ -113,16 +113,16 @@
                 <button type="button" id="cancel-issue">Cancel</button>
                 <button type="submit">Save Report</button>
             </div>
-            <small>Saved on this device until the database is connected.</small>
+            <small>Issue reports are saved to the GreenMap database.</small>
         </form>
     </dialog>
 
     <script>
         window.GREENMAP_CONFIG = {
             pageExtension: 'html',
-            apiBaseUrl: 'api/'
+            apiBaseUrl: 'backend/server/api/'
         };
     </script>
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>
