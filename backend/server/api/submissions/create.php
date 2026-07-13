@@ -3,7 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
-require __DIR__ . '/../../session_helpers.php';
+require __DIR__ . '/../../sessions-helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -12,11 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Only admin and superadmin accounts may submit trees. This also confirms
-// the request is authenticated before we touch the database at all.
 $user = requireRole(['admin', 'superadmin']);
-
-$data = json_decode(file_get_contents('php://input'), true);
+$contentType = (string) ($_SERVER['CONTENT_TYPE'] ?? '');
+$isMultipart = str_starts_with(strtolower($contentType), 'multipart/form-data');
+$data = $isMultipart ? $_POST : json_decode(file_get_contents('php://input'), true);
 
 if (!is_array($data)) {
     http_response_code(400);
@@ -24,78 +23,167 @@ if (!is_array($data)) {
     exit;
 }
 
-// --- tree_data fields ---
+// An existing species_id may be supplied. If it is omitted, the species
+// fields are used to create (or reuse) a catalog entry in the transaction.
 $speciesId = filter_var($data['species_id'] ?? null, FILTER_VALIDATE_INT);
+$commonName = trim((string) ($data['common_name'] ?? ''));
+$scientificName = trim((string) ($data['scientific_name'] ?? ''));
+$originStatus = (string) ($data['origin_status'] ?? 'Unknown');
+$description = trim((string) ($data['description'] ?? ''));
+
 $treeStatus = (string) ($data['tree_status'] ?? 'Healthy');
-$treeAge = array_key_exists('tree_age', $data) && $data['tree_age'] !== null
+$treeAge = array_key_exists('tree_age', $data) && $data['tree_age'] !== null && $data['tree_age'] !== ''
     ? filter_var($data['tree_age'], FILTER_VALIDATE_INT)
     : null;
-$treePhoto = trim((string) ($data['tree_photo'] ?? ''));
-
-// --- tree_submissions fields ---
+$treePhoto = $isMultipart ? '' : trim((string) ($data['tree_photo'] ?? ''));
 $latitude = filter_var($data['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $longitude = filter_var($data['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
 
+$photoUpload = $_FILES['tree_photo'] ?? null;
+$hasPhotoUpload = is_array($photoUpload)
+    && ($photoUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+$photoExtension = null;
+
+if ($hasPhotoUpload) {
+    if (($photoUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        http_response_code(422);
+        echo json_encode(['success' => false, 'message' => 'The tree photo could not be uploaded.']);
+        exit;
+    }
+
+    if (($photoUpload['size'] ?? 0) <= 0 || $photoUpload['size'] > 5 * 1024 * 1024) {
+        http_response_code(422);
+        echo json_encode(['success' => false, 'message' => 'The tree photo must be no larger than 5 MB.']);
+        exit;
+    }
+
+    $allowedPhotoTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    $photoMime = (new finfo(FILEINFO_MIME_TYPE))->file($photoUpload['tmp_name']);
+    $photoExtension = $allowedPhotoTypes[$photoMime] ?? null;
+
+    if ($photoExtension === null) {
+        http_response_code(422);
+        echo json_encode(['success' => false, 'message' => 'Upload a JPG, PNG, or WebP tree photo.']);
+        exit;
+    }
+}
+
+$allowedOrigins = ['Native', 'Introduced', 'Unknown'];
 $allowedStatuses = ['Healthy', 'Diseased', 'Dead', 'Removed'];
+$usesExistingSpecies = $speciesId !== false && $speciesId !== null && $speciesId > 0;
+$validNewSpecies = !$usesExistingSpecies
+    && $commonName !== ''
+    && mb_strlen($commonName) <= 80
+    && $scientificName !== ''
+    && mb_strlen($scientificName) <= 100
+    && in_array($originStatus, $allowedOrigins, true)
+    && mb_strlen($description) <= 5000;
 
 if (
-    $speciesId === false || $speciesId === null || $speciesId <= 0 ||
+    (!$usesExistingSpecies && !$validNewSpecies) ||
     !in_array($treeStatus, $allowedStatuses, true) ||
-    ($treeAge !== null && ($treeAge === false || $treeAge < 0 || $treeAge > 32767)) ||
-    strlen($treePhoto) > 255 ||
+    ($treeAge !== null && ($treeAge === false || $treeAge < 0 || $treeAge > 65535)) ||
+    mb_strlen($treePhoto) > 255 ||
     $latitude === false || $latitude === null ||
     $longitude === false || $longitude === null ||
     $latitude < -90 || $latitude > 90 ||
     $longitude < -180 || $longitude > 180
 ) {
     http_response_code(422);
-    echo json_encode(['success' => false, 'message' => 'Invalid tree submission information.']);
+    echo json_encode(['success' => false, 'message' => 'Please check the contribution fields and try again.']);
     exit;
 }
 
+$description = $description !== '' ? $description : null;
 $treePhoto = $treePhoto !== '' ? $treePhoto : null;
 $submittedBy = $user['id'];
+$uploadedPhotoPath = null;
 
 try {
-    // Confirm the species actually exists before we insert against it.
-    // Without this, a bad species_id surfaces as a generic FK failure
-    // instead of a clear validation message.
-    $speciesCheck = $conn->prepare(
-        'SELECT species_id FROM species WHERE species_id = ? LIMIT 1'
-    );
-    $speciesCheck->bind_param('i', $speciesId);
-    $speciesCheck->execute();
-    $speciesRow = $speciesCheck->get_result()->fetch_assoc();
+    $conn->begin_transaction();
 
-    if (!$speciesRow) {
-        http_response_code(422);
-        echo json_encode(['success' => false, 'message' => 'The selected species does not exist.']);
-        exit;
+    if ($usesExistingSpecies) {
+        $speciesCheck = $conn->prepare(
+            'SELECT species_id FROM species WHERE species_id = ? LIMIT 1'
+        );
+        $speciesCheck->bind_param('i', $speciesId);
+        $speciesCheck->execute();
+
+        if (!$speciesCheck->get_result()->fetch_assoc()) {
+            $conn->rollback();
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'The selected species no longer exists.']);
+            exit;
+        }
+    } else {
+        $speciesStatement = $conn->prepare(
+            'INSERT INTO species (common_name, scientific_name, origin_status, description)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE species_id = LAST_INSERT_ID(species_id)'
+        );
+        $speciesStatement->bind_param(
+            'ssss',
+            $commonName,
+            $scientificName,
+            $originStatus,
+            $description
+        );
+        $speciesStatement->execute();
+        $speciesId = $conn->insert_id;
     }
 
-    // Both inserts must succeed together, or neither should persist.
-    // Otherwise a failed submission insert would leave an orphaned tree_data row.
-    $conn->begin_transaction();
+    if ($hasPhotoUpload) {
+        $uploadDirectory = dirname(__DIR__, 4) . '/uploads/trees';
+        if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0775, true) && !is_dir($uploadDirectory)) {
+            throw new RuntimeException('Unable to create the tree photo directory.');
+        }
+
+        $photoFileName = bin2hex(random_bytes(16)) . '.' . $photoExtension;
+        $uploadedPhotoPath = $uploadDirectory . '/' . $photoFileName;
+        if (!move_uploaded_file($photoUpload['tmp_name'], $uploadedPhotoPath)) {
+            throw new RuntimeException('Unable to store the tree photo.');
+        }
+        $treePhoto = 'uploads/trees/' . $photoFileName;
+    }
 
     $treeStatement = $conn->prepare(
         'INSERT INTO tree_data (species_id, tree_photo, tree_status, tree_age)
-        VALUES (?, ?, ?, ?)'
+         VALUES (?, ?, ?, ?)'
     );
-    $treeStatement->bind_param(
-        'issi', $speciesId, $treePhoto, $treeStatus, $treeAge
-    );
+    $treeStatement->bind_param('issi', $speciesId, $treePhoto, $treeStatus, $treeAge);
     $treeStatement->execute();
     $treeId = $conn->insert_id;
 
-    $submissionStatement = $conn->prepare(
-        'INSERT INTO tree_submissions (
-            tree_id, submitted_by, latitude, longitude, approval_status
-        ) VALUES (?, ?, ?, ?, ?)'
-    );
-    $approvalStatus = 'Pending';
-    $submissionStatement->bind_param(
-        'iidds', $treeId, $submittedBy, $latitude, $longitude, $approvalStatus
-    );
+    $isSuperadmin = $user['role'] === 'superadmin';
+    $approvalStatus = $isSuperadmin ? 'Approved' : 'Pending';
+
+    if ($isSuperadmin) {
+        $submissionStatement = $conn->prepare(
+            'INSERT INTO tree_submissions (
+                tree_id, submitted_by, latitude, longitude,
+                approval_status, reviewed_by, reviewed_at
+             ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+        );
+        $submissionStatement->bind_param(
+            'iiddsi',
+            $treeId,
+            $submittedBy,
+            $latitude,
+            $longitude,
+            $approvalStatus,
+            $submittedBy
+        );
+    } else {
+        $submissionStatement = $conn->prepare(
+            'INSERT INTO tree_submissions (tree_id, submitted_by, latitude, longitude)
+             VALUES (?, ?, ?, ?)'
+        );
+        $submissionStatement->bind_param('iidd', $treeId, $submittedBy, $latitude, $longitude);
+    }
     $submissionStatement->execute();
     $submissionId = $conn->insert_id;
 
@@ -104,12 +192,18 @@ try {
     http_response_code(201);
     echo json_encode([
         'success' => true,
-        'tree_id' => $treeId,
-        'submission_id' => $submissionId,
-        'message' => 'Tree submission received and is pending review.'
+        'treeId' => (int) $treeId,
+        'submissionId' => (int) $submissionId,
+        'approvalStatus' => $approvalStatus,
+        'message' => $isSuperadmin
+            ? 'Tree contribution saved and approved.'
+            : 'Tree contribution saved and marked as pending.',
     ]);
-} catch (mysqli_sql_exception $exception) {
+} catch (Throwable $exception) {
     $conn->rollback();
+    if ($uploadedPhotoPath !== null && is_file($uploadedPhotoPath)) {
+        unlink($uploadedPhotoPath);
+    }
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Unable to save the tree submission.']);
+    echo json_encode(['success' => false, 'message' => 'Unable to save the tree contribution.']);
 }

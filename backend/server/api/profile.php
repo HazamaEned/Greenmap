@@ -2,7 +2,7 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-require __DIR__ . '/../session_helpers.php';
+require __DIR__ . '/../sessions-helper.php';
 
 $user = requireLogin();
 

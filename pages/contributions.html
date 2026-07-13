@@ -1,20 +1,60 @@
 <section class="view-stack">
-    <header class="panel-header">
-        <span>Inventory</span>
-        <h2>My Contributions</h2>
+    <header class="panel-header dashboard-header">
+        <div>
+            <span>Inventory</span>
+            <h2>My Contributions</h2>
+        </div>
+        <button type="button" class="primary-action" id="add-contribution">Add Tree Contribution</button>
     </header>
 
+    <div id="contribution-form-region" class="contribution-form-region hidden" aria-live="polite"></div>
+
+    <div class="contribution-summary" aria-label="Contribution summary">
+        <article>
+            <span>Total</span>
+            <strong id="contribution-total">0</strong>
+        </article>
+        <article>
+            <span>Pending</span>
+            <strong id="contribution-pending">0</strong>
+        </article>
+        <article>
+            <span>Approved</span>
+            <strong id="contribution-approved">0</strong>
+        </article>
+        <article>
+            <span>Rejected</span>
+            <strong id="contribution-rejected">0</strong>
+        </article>
+    </div>
+
+    <div class="table-toolbar">
+        <label class="field contribution-filter">
+            Approval status
+            <select id="contribution-status-filter">
+                <option value="">All statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </label>
+    </div>
+
     <div class="table-shell">
-        <table class="table">
+        <table class="table contribution-table">
             <thead>
                 <tr>
-                    <th>Tree</th>
-                    <th>Date</th>
+                    <th>Species</th>
+                    <th>Tree condition</th>
+                    <th>Submitted</th>
+                    <th>Approval</th>
                     <th>Location</th>
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody id="contributions-body"></tbody>
+            <tbody id="contributions-body">
+                <tr><td colspan="6" class="empty-state">Loading your contributions...</td></tr>
+            </tbody>
         </table>
     </div>
 </section>

@@ -4,22 +4,37 @@ header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
 
-try {
-    $result = $conn->query(
-        'SELECT
-            species_id AS id,
-            common_name AS name,
-            scientific_name AS scientificName,
-            image_path AS img
-        FROM species
-        ORDER BY common_name ASC'
-    );
+$query = trim((string) ($_GET['q'] ?? ''));
+$limit = filter_var($_GET['limit'] ?? 20, FILTER_VALIDATE_INT);
+$limit = $limit !== false ? max(1, min($limit, 100)) : 20;
 
-    $species = $result->fetch_all(MYSQLI_ASSOC);
-    foreach ($species as &$item) {
-        $item['id'] = (int) $item['id'];
+try {
+    $statement = $conn->prepare(
+        'SELECT
+            species_id,
+            common_name,
+            scientific_name,
+            origin_status
+        FROM species
+        WHERE ? = \'\'
+           OR common_name LIKE CONCAT(\'%\', ?, \'%\')
+           OR scientific_name LIKE CONCAT(\'%\', ?, \'%\')
+        ORDER BY common_name ASC
+        LIMIT ?'
+    );
+    $statement->bind_param('sssi', $query, $query, $query, $limit);
+    $statement->execute();
+    $result = $statement->get_result();
+
+    $species = [];
+    while ($row = $result->fetch_assoc()) {
+        $species[] = [
+            'speciesId' => (int) $row['species_id'],
+            'commonName' => $row['common_name'],
+            'scientificName' => $row['scientific_name'],
+            'originStatus' => $row['origin_status'],
+        ];
     }
-    unset($item);
 
     echo json_encode(['success' => true, 'species' => $species]);
 } catch (mysqli_sql_exception $exception) {

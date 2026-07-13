@@ -3,7 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
-require __DIR__ . '/../../session_helpers.php';
+require __DIR__ . '/../../sessions-helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -45,18 +45,27 @@ try {
         exit;
     }
 
+    // Only staff accounts may authenticate. The exact database role is kept
+    // in the session so superadmin-only endpoints can enforce authorization.
+    if (!in_array($user['role'], ['admin', 'superadmin'], true)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Admin accounts only.']);
+        exit;
+    }
+
     startSecureSession();
     session_regenerate_id(true); // prevents session fixation on privilege change
+    $sessionRole = $user['role'];
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['name'] = $user['name'];
-    $_SESSION['role'] = $user['role'];
+    $_SESSION['role'] = $sessionRole;
 
     echo json_encode([
         'success' => true,
         'user' => [
             'id' => (int) $user['id'],
             'name' => $user['name'],
-            'role' => $user['role']
+            'role' => $sessionRole
         ]
     ]);
 } catch (mysqli_sql_exception $exception) {

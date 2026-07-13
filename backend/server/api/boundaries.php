@@ -2,7 +2,7 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-$cacheDirectory = __DIR__ . '../../cache';
+$cacheDirectory = dirname(__DIR__) . '/cache';
 $cacheFile = $cacheDirectory . '/pasig-boundaries.json';
 $cacheLifetime = 7 * 24 * 60 * 60;
 

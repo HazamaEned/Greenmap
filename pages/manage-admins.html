@@ -1,0 +1,46 @@
+<section class="view-stack">
+    <header class="panel-header">
+        <span>Superadmin</span>
+        <h2>Manage Admins</h2>
+    </header>
+
+    <div class="settings-split admin-management-grid">
+        <section class="section-card">
+            <h3>Create Administrator</h3>
+            <form class="form-grid" id="create-admin-form">
+                <label class="field">
+                    Full name *
+                    <input name="name" type="text" maxlength="100" required>
+                </label>
+
+                <label class="field">
+                    Email address *
+                    <input name="email" type="email" maxlength="255" required>
+                </label>
+
+                <label class="field">
+                    Temporary password *
+                    <span class="password-field">
+                        <input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                        <button class="password-reveal" type="button" aria-label="Show password" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M2.4 12s3.5-6 9.6-6 9.6 6 9.6 6-3.5 6-9.6 6-9.6-6-9.6-6Z"></path>
+                                <circle cx="12" cy="12" r="2.7"></circle>
+                            </svg>
+                        </button>
+                    </span>
+                    <small>Use at least 8 characters. The password is hashed before storage.</small>
+                </label>
+
+                <button type="submit" class="primary-action">Create Admin</button>
+            </form>
+        </section>
+
+        <section class="section-card">
+            <h3>Administrator Accounts</h3>
+            <div class="admin-list" id="admin-list">
+                <div class="dashboard-empty compact-empty">Loading accounts...</div>
+            </div>
+        </section>
+    </div>
+</section>

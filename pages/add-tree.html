@@ -1,41 +1,124 @@
-<section class="view-stack compact-view">
-    <header class="panel-header">
-        <span>Inventory</span>
-        <h2>Add Tree</h2>
+<section class="view-stack contribution-form-view">
+    <header class="panel-header dashboard-header">
+        <div>
+            <span>My Contributions</span>
+            <h2>Add Tree Contribution</h2>
+        </div>
+        <button type="button" class="secondary-action header-action" id="cancel-contribution">Cancel</button>
     </header>
 
-    <form class="form-box" id="add-tree-form">
-        <label class="field">
-            Common Name *
-            <input name="name" type="text" placeholder="Mango Tree" maxlength="80" required>
-        </label>
-
-        <label class="field">
-            Species Name *
-            <input name="species" type="text" placeholder="Mangifera indica" maxlength="100" required>
-        </label>
-
-        <div class="field">
-            <span>Location Coordinates *</span>
-            <div class="coordinate-row">
-                <input name="latitude" type="number" placeholder="Latitude" step="any" min="-90" max="90" required>
-                <input name="longitude" type="number" placeholder="Longitude" step="any" min="-180" max="180" required>
+    <form class="form-box contribution-form" id="add-tree-form">
+        <section class="form-section">
+            <div class="form-section-heading">
+                <span>1</span>
+                <div>
+                    <h3>Species information</h3>
+                    <small>Select a catalog entry or add a species that is not listed yet.</small>
+                </div>
             </div>
-            <small>Map selection, manual entry, or <button type="button" id="use-location" class="link-button">use my location</button>.</small>
+
+            <label class="field">
+                Species *
+                <select name="species_id" id="species-select" required>
+                    <option value="">Loading species...</option>
+                </select>
+            </label>
+
+            <div class="new-species-fields hidden" id="new-species-fields">
+                <div class="form-grid two-column-grid">
+                    <label class="field">
+                        Common name *
+                        <input name="common_name" type="text" maxlength="80" placeholder="Narra">
+                    </label>
+
+                    <label class="field">
+                        Scientific name *
+                        <input name="scientific_name" type="text" maxlength="100" placeholder="Pterocarpus indicus">
+                    </label>
+
+                    <label class="field">
+                        Origin status *
+                        <select name="origin_status">
+                            <option value="Unknown">Unknown</option>
+                            <option value="Native">Native</option>
+                            <option value="Introduced">Introduced</option>
+                        </select>
+                    </label>
+                </div>
+
+                <label class="field">
+                    Species description
+                    <textarea name="description" rows="3" maxlength="5000" placeholder="Optional identifying notes about this species"></textarea>
+                </label>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <div class="form-section-heading">
+                <span>2</span>
+                <div>
+                    <h3>Tree details</h3>
+                    <small>Describe the condition of the individual tree being submitted.</small>
+                </div>
+            </div>
+
+            <div class="form-grid two-column-grid">
+                <label class="field">
+                    Tree status *
+                    <select name="tree_status" required>
+                        <option value="Healthy">Healthy</option>
+                        <option value="Diseased">Diseased</option>
+                        <option value="Dead">Dead</option>
+                        <option value="Removed">Removed</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    Estimated age (years)
+                    <input name="tree_age" type="number" min="0" max="65535" step="1" placeholder="Optional">
+                </label>
+            </div>
+
+            <label class="field">
+                Tree photo
+                <input name="tree_photo" type="file" accept="image/jpeg,image/png,image/webp">
+                <small>Optional. Upload a JPG, PNG, or WebP image up to 5 MB.</small>
+            </label>
+        </section>
+
+        <section class="form-section">
+            <div class="form-section-heading">
+                <span>3</span>
+                <div>
+                    <h3>Tree location</h3>
+                    <small>Coordinates are required by the tree_submissions table.</small>
+                </div>
+            </div>
+
+            <div class="field">
+                <span>Location coordinates *</span>
+                <div class="coordinate-row">
+                    <label>
+                        <small>Latitude</small>
+                        <input name="latitude" type="number" placeholder="14.576400" step="0.000001" min="-90" max="90" required>
+                    </label>
+                    <label>
+                        <small>Longitude</small>
+                        <input name="longitude" type="number" placeholder="121.085100" step="0.000001" min="-180" max="180" required>
+                    </label>
+                </div>
+                <small>Use a selected map point, enter coordinates, or <button type="button" id="use-location" class="link-button">use my current location</button>.</small>
+            </div>
+        </section>
+
+        <div class="submission-note">
+            <strong>Saved automatically</strong>
+            <span>Your account, submission ID, tree ID, Pending approval status, and timestamps are assigned by GreenMap.</span>
         </div>
 
-        <label class="field">
-            Date Planted *
-            <input name="planted" type="month" required>
-            <small>Estimated month is accepted.</small>
-        </label>
-
-        <label class="switch field-inline">
-            <input name="active" type="checkbox" id="active-status" checked>
-            <span class="slider"></span>
-            Active
-        </label>
-
-        <button type="submit" class="primary-action">Add Tree</button>
+        <div class="form-actions">
+            <button type="button" class="secondary-action" id="cancel-contribution-bottom">Cancel</button>
+            <button type="submit" class="primary-action">Submit Contribution</button>
+        </div>
     </form>
 </section>

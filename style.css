@@ -44,11 +44,79 @@ button {
 }
 
 .sidebar {
+    display: flex;
+    flex-direction: column;
     background: var(--green-dark);
     color: #eef6ef;
     min-height: 100vh;
     padding: 18px;
     border-right: 1px solid #ffffff17;
+}
+
+.sidebar nav {
+    flex: 1;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    padding-top: 18px;
+}
+
+.theme-toggle {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid #ffffff24;
+    border-radius: 10px;
+    background: #ffffff0d;
+    color: #e9f2ec;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.theme-toggle:hover {
+    background: #ffffff17;
+}
+
+.theme-toggle-icon {
+    width: 20px;
+    font-size: 18px;
+    text-align: center;
+}
+
+.theme-switch {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    background: #6d7c72;
+    border-radius: 999px;
+    transition: background 160ms ease;
+}
+
+.theme-switch::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px #0005;
+    transition: transform 160ms ease;
+}
+
+.theme-toggle[aria-pressed="true"] .theme-switch {
+    background: #54b77d;
+}
+
+.theme-toggle[aria-pressed="true"] .theme-switch::before {
+    transform: translateX(16px);
 }
 
 .brand {
@@ -147,7 +215,7 @@ button {
     gap: 18px;
     height: 72px;
     padding: 0 24px;
-    background: #fbfcf9;
+    background: var(--surface);
     border-bottom: 1px solid var(--line);
 }
 
@@ -206,20 +274,29 @@ button {
     height: 100%;
 }
 
-.map-legend {
+.map-left-stack {
     position: absolute;
     top: 18px;
     left: 18px;
     z-index: 900;
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    width: min(520px, calc(100% - 36px));
+    pointer-events: none;
+}
+
+.map-legend {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    max-width: min(520px, calc(100% - 36px));
+    max-width: 100%;
     padding: 10px;
     background: #fffffff2;
     border: 1px solid var(--line);
     border-radius: 8px;
     box-shadow: 0 12px 28px #17211c1a;
+    pointer-events: auto;
 }
 
 .map-legend span {
@@ -264,16 +341,13 @@ button {
 }
 
 .tree-popup {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    z-index: 1000;
-    width: min(300px, calc(100% - 36px));
+    width: min(300px, 100%);
     overflow: hidden;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 8px;
     box-shadow: var(--shadow);
+    pointer-events: auto;
 }
 
 .tree-popup img {
@@ -312,7 +386,7 @@ button {
 
 .gps-status {
     position: absolute;
-    left: 18px;
+    right: 18px;
     bottom: 18px;
     z-index: 900;
 }
@@ -357,6 +431,17 @@ button {
     color: var(--ink);
 }
 
+/* Keep Leaflet's zoom controls in the lower-left corner of the map. */
+#map .leaflet-top.leaflet-left {
+    top: auto;
+    bottom: 18px;
+}
+
+#map .leaflet-top.leaflet-left .leaflet-control {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
 .panel {
     height: calc(100vh - 72px);
     padding: 28px;
@@ -388,6 +473,8 @@ dialog {
     border: 0;
     border-radius: 8px;
     box-shadow: var(--shadow);
+    background: var(--surface);
+    color: var(--ink);
 }
 
 dialog::backdrop {
@@ -418,7 +505,7 @@ dialog textarea {
     padding: 10px 11px;
     border: 1px solid var(--line-strong);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--surface);
     color: var(--ink);
 }
 
@@ -441,7 +528,58 @@ dialog small {
 
 .dialog-actions button[type="button"] {
     border: 1px solid var(--line-strong);
-    background: #ffffff;
+    background: var(--surface);
+    color: var(--ink);
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0e1511;
+    --surface: #17201b;
+    --surface-soft: #1d2a23;
+    --ink: #edf5ef;
+    --muted: #a3b2a8;
+    --line: #2b3a31;
+    --line-strong: #3b4d42;
+    --green: #4eaf78;
+    --green-dark: #09110c;
+    --green-soft: #20392a;
+    --blue: #69aee3;
+    --red: #e17777;
+    --shadow: 0 18px 45px #0000004d;
+}
+
+html[data-theme="dark"] .menu li.active {
+    background: #e9f1eb;
+    color: #14221a;
+}
+
+html[data-theme="dark"] .map-area {
+    background: #18231d;
+}
+
+html[data-theme="dark"] .map-legend,
+html[data-theme="dark"] .gps-status button {
+    background: #17201bf2;
+    color: var(--ink);
+}
+
+html[data-theme="dark"] .map-legend span {
+    color: var(--ink);
+}
+
+html[data-theme="dark"] .tree-popup button {
+    background: var(--surface-soft);
+}
+
+html[data-theme="dark"] .leaflet-tile-pane {
+    filter: brightness(.72) contrast(1.08) saturate(.72);
+}
+
+html[data-theme="dark"] .leaflet-control-zoom a,
+html[data-theme="dark"] .leaflet-popup-content-wrapper,
+html[data-theme="dark"] .leaflet-popup-tip {
+    background: var(--surface);
     color: var(--ink);
 }
 
@@ -457,6 +595,15 @@ dialog small {
     .sidebar {
         min-height: auto;
         padding: 12px 14px;
+    }
+
+    .sidebar-footer {
+        margin-top: 12px;
+        padding-top: 0;
+    }
+
+    .theme-toggle {
+        max-width: 220px;
     }
 
     .brand {
@@ -529,24 +676,29 @@ dialog small {
         padding: 18px;
     }
 
-    .map-legend {
+    .map-left-stack {
         top: 12px;
         left: 12px;
         right: 12px;
+        width: auto;
+    }
+
+    .map-legend {
+        width: 100%;
         max-width: none;
     }
 
     .gps-status {
-        left: 12px;
+        right: 12px;
+        bottom: 12px;
+    }
+
+    #map .leaflet-top.leaflet-left {
         bottom: 12px;
     }
 
     .tree-popup {
-        top: auto;
-        right: 12px;
-        bottom: 68px;
-        left: 12px;
-        width: auto;
+        width: min(300px, 100%);
     }
 }
 

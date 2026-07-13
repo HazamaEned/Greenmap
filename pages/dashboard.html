@@ -1,14 +1,19 @@
 <section class="view-stack">
-    <header class="panel-header">
-        <span>Overview</span>
-        <h2>Dashboard</h2>
+    <header class="panel-header dashboard-header">
+        <div>
+            <span>Overview</span>
+            <h2>Dashboard</h2>
+        </div>
+        <button type="button" class="primary-action report-action" id="generate-report" data-admin-only>
+            Generate Report
+        </button>
     </header>
 
     <div class="dash-grid">
         <article class="dash-card">
             <span class="stat-label">Total Trees</span>
             <strong class="number" id="total-trees">0</strong>
-            <small>Prototype inventory</small>
+            <small>Approved inventory records</small>
         </article>
 
         <article class="dash-card">
@@ -19,34 +24,59 @@
 
         <article class="dash-card">
             <span class="stat-label">Location Source</span>
-            <strong class="number text-stat">GPS</strong>
-            <small>Browser location</small>
+            <strong class="number text-stat" id="location-source">Not requested</strong>
+            <small>Browser location status</small>
         </article>
 
-        <article class="dash-card">
+        <article class="dash-card" data-admin-only>
             <span class="stat-label">My Contributions</span>
             <strong class="number" id="my-trees">0</strong>
-            <small>Saved locally</small>
+            <small>All of your submitted trees</small>
         </article>
     </div>
 
-    <div class="activity-grid">
-        <section class="section-card database-preview">
-            <h3>Recent Activity</h3>
-            <ul class="activity-list">
-                <li><span>Narra Tree</span><small>Barangay San Rafael</small></li>
-                <li><span>Pine Tree</span><small>Riverbank Area</small></li>
-                <li><span>GPS signal</span><small>East Park updated</small></li>
-                <li><span>Acacia</span><small>Marked for review</small></li>
-            </ul>
+    <div class="chart-grid">
+        <section class="section-card chart-card">
+            <div class="section-heading">
+                <div>
+                    <span>Inventory mix</span>
+                    <h3>Tree Species</h3>
+                </div>
+            </div>
+            <div class="bar-chart" id="species-chart"></div>
         </section>
 
-        <section class="section-card database-preview">
+        <section class="section-card chart-card">
+            <div class="section-heading">
+                <div>
+                    <span>Condition</span>
+                    <h3>Tree Status</h3>
+                </div>
+            </div>
+            <div class="status-chart-layout">
+                <div class="donut-chart" id="status-chart" aria-label="Tree status chart"></div>
+                <ul class="chart-legend" id="status-legend"></ul>
+            </div>
+        </section>
+    </div>
+
+    <div class="activity-grid">
+        <section class="section-card">
+            <h3>Recent Activity</h3>
+            <ul class="activity-list" id="recent-activity"></ul>
+        </section>
+
+        <section class="section-card" data-admin-only>
+            <h3>My Recent Contributions</h3>
+            <ul class="activity-list" id="dashboard-contributions"></ul>
+        </section>
+
+        <section class="section-card" data-admin-only>
             <h3>Notifications</h3>
-            <ul class="activity-list">
-                <li><span>Tree transfer</span><small>Maybunga to Pinagbuhatan</small></li>
-                <li><span>Species update</span><small>Acacia replaced with Mango in Pineda</small></li>
-            </ul>
+            <div class="dashboard-empty compact-empty">
+                <strong>You're all caught up</strong>
+                <small>Administrative notices will appear here.</small>
+            </div>
         </section>
     </div>
 </section>
