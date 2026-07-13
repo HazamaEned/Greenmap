@@ -44,6 +44,8 @@
                 </div>
                 <div class="topbar-actions">
                     <span id="welcome-user">Welcome, User</span>
+                    <button id="login-trigger">Log in</button>
+                    <button id="logout-button" class="hidden">Log out</button>
                     <button class="issue-btn">Report Issue</button>
                 </div>
             </header>
@@ -117,10 +119,28 @@
         </form>
     </dialog>
 
+    <dialog id="login-dialog">       
+        <form id="login-form">
+            <h2>Log in</h2>
+            <label>
+                Email
+                <input type="email" name="email" required>
+            </label>
+            <label>
+                Password
+                <input type="password" name="password" required>
+            </label>
+            <div class="dialog-actions">
+                <button type="button" id="cancel-login">Cancel</button>
+                <button type="submit">Log in</button>
+            </div>
+        </form>
+    </dialog>
+
     <script>
         window.GREENMAP_CONFIG = {
             pageExtension: 'html',
-            apiBaseUrl: 'backend/server/api/'
+            apiBaseUrl: '/server/api/'
         };
     </script>
     <script src="app.js?v=5"></script>

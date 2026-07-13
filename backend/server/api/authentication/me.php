@@ -2,9 +2,7 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-require __DIR__ . '/../session_helpers.php';
-
-$user = requireLogin();
+require __DIR__ . '/../../session_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
@@ -13,10 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
+$user = currentUser();
+
 echo json_encode([
     'success' => true,
-    'profile' => [
-        'name' => $user['name'],
-        'role' => $user['role']
-    ]
+    'loggedIn' => $user !== null,
+    'user' => $user
 ]);

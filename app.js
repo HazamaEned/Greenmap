@@ -5,7 +5,7 @@
     const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
     const config = window.GREENMAP_CONFIG || {};
     const pageExtension = config.pageExtension || 'html';
-    const apiBaseUrl = config.apiBaseUrl || 'backend/server/api/';
+    const apiBaseUrl = config.apiBaseUrl || 'server/api/';
     const pageTitles = {
         dashboard: 'Dashboard',
         map: 'Map',
@@ -14,34 +14,17 @@
         settings: 'Settings'
     };
 
-    const legacyRead = (key, fallback) => {
-        try {
-            return JSON.parse(localStorage.getItem(key)) ?? fallback;
-        } catch {
-            return fallback;
-        }
-    };
-
-    const legacyWrite = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-
     let map;
     let treeLayer;
     let boundaryLayer;
     let userMarker;
     let startupLocationRequested = false;
     let databaseTrees = [];
+    let speciesList = [];
     let pendingLocation = null;
-    let currentProfile = {
-        name: 'local_user',
-        email: 'local@greenmap.test',
-        phone: '',
-        emailNotifications: true,
-        trackingAlerts: false
-    };
+    let currentUser = null; // { name, role } or null if not logged in
 
-    // Barangay boundary polygons, populated once Overpass data loads. Used to
-    // work out which barangay a tree sits in, so "location" never needs to be
-    // entered by hand.
+    // Barangay boundary polygons, populated once Overpass data loads.
     let barangayPolygons = [];
 
     // tree id -> { marker, tree } so the filter can dim/restore markers
@@ -65,7 +48,9 @@
     });
 
     const trees = () => databaseTrees;
-    const profile = () => currentProfile;
+    const isLoggedIn = () => currentUser !== null;
+    const canSubmitTrees = () => currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+    const isSuperadmin = () => currentUser?.role === 'superadmin';
 
     function toast(message) {
         const element = $('#toast');
@@ -76,7 +61,10 @@
     }
 
     async function apiRequest(path, options = {}) {
-        const response = await fetch(`${apiBaseUrl}${path}`, options);
+        const response = await fetch(`${apiBaseUrl}${path}`, {
+            credentials: 'include', // required so PHP session cookies are sent
+            ...options
+        });
         const result = await response.json().catch(() => null);
 
         if (!response.ok || !result?.success) {
@@ -86,42 +74,112 @@
         return result;
     }
 
+    // --- Auth --------------------------------------------------------------
+
+    async function checkAuth() {
+        try {
+            const result = await apiRequest('auth/me.php');
+            currentUser = result.loggedIn ? result.user : null;
+        } catch {
+            currentUser = null;
+        }
+    }
+
+    async function login(email, password) {
+        const result = await apiRequest('auth/login.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        currentUser = result.user;
+    }
+
+    async function logout() {
+        await apiRequest('auth/logout.php', { method: 'POST' });
+        currentUser = null;
+    }
+
+    function showLoginScreen() {
+        $('#login-dialog')?.showModal();
+    }
+
+    function showApp() {
+        $('#login-dialog')?.close();
+    }
+
+    function setupLoginForm() {
+        const form = $('#login-form');
+        if (!form) return; // see HTML note below
+
+        form.onsubmit = async event => {
+            event.preventDefault();
+            const data = new FormData(form);
+            const submitButton = form.querySelector('[type="submit"]');
+            submitButton.disabled = true;
+
+            try {
+                await login(data.get('email').trim(), data.get('password'));
+                form.reset();
+                showApp(); // hide the login form/modal if it's currently shown
+                applyRoleVisibility();
+                welcome();
+                await loadProfile();
+                toast('Logged in.');
+            } catch (error) {
+                toast(error.message);
+            } finally {
+                submitButton.disabled = false;
+            }
+        };
+    }
+
+    function setupLogoutButton() {
+        const button = $('#logout-button');
+        if (!button) return;
+
+        button.onclick = async () => {
+            try {
+                await logout();
+                applyRoleVisibility(); // hides admin-only nav items again
+                welcome(); // now shows "Welcome, Guest"
+                toast('Logged out.');
+            } catch (error) {
+                toast(error.message);
+            }
+        };
+    }
+
+    // --- Species -------------------------------------------------------------
+
+    async function loadSpeciesList(query = '') {
+        const result = await apiRequest(`species/search.php?q=${encodeURIComponent(query || 'a')}&limit=50`);
+        speciesList = result.species;
+        return speciesList;
+    }
+
+    function populateSpeciesSelect(select) {
+        if (!select) return;
+        select.innerHTML = '<option value="">Select a species...</option>'
+            + speciesList.map(species =>
+                `<option value="${species.speciesId}">${escapeHtml(species.commonName)} (${escapeHtml(species.scientificName)})</option>`
+            ).join('');
+    }
+
+    // --- Trees ---------------------------------------------------------------
+
     async function saveTreeToDatabase(tree) {
-        return apiRequest('trees/create.php', {
+        return apiRequest('submissions/create.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                name: tree.name,
-                species: tree.species,
-                status: tree.status || 'Unknown',
-                active: tree.active !== false,
-                lat: Number(tree.lat),
-                lon: Number(tree.lon),
-                planted: tree.planted || '',
-                img: tree.img || 'trees/mango.jpg'
+                species_id: tree.speciesId,
+                tree_status: tree.status || 'Healthy',
+                tree_age: tree.age ?? null,
+                tree_photo: tree.photo || null,
+                latitude: tree.lat,
+                longitude: tree.lon
             })
         });
-    }
-
-    async function migrateLocalTrees() {
-        const pendingTrees = legacyRead('greenmap.trees', []);
-        if (!Array.isArray(pendingTrees) || pendingTrees.length === 0) return 0;
-
-        let migrated = 0;
-        while (pendingTrees.length) {
-            await saveTreeToDatabase(pendingTrees[0]);
-            pendingTrees.shift();
-            migrated += 1;
-
-            // Remove each item only after MySQL confirms that it was saved.
-            if (pendingTrees.length) {
-                legacyWrite('greenmap.trees', pendingTrees);
-            } else {
-                localStorage.removeItem('greenmap.trees');
-            }
-        }
-
-        return migrated;
     }
 
     async function loadDatabaseTrees() {
@@ -129,65 +187,15 @@
         databaseTrees = result.trees;
     }
 
-    async function saveProfileToDatabase(profileData) {
-        await apiRequest('profile.php', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(profileData)
-        });
-    }
+    // --- Profile ---------------------------------------------------------------
 
-    async function loadDatabaseProfile() {
+    async function loadProfile() {
         const result = await apiRequest('profile.php');
-        currentProfile = result.profile;
-    }
-
-    async function migrateLegacyProfile() {
-        if (localStorage.getItem('greenmap.profile') === null) return false;
-
-        const savedProfile = legacyRead('greenmap.profile', null);
-        if (!savedProfile) return false;
-
-        await saveProfileToDatabase(savedProfile);
-        localStorage.removeItem('greenmap.profile');
-        return true;
-    }
-
-    async function saveIssueToDatabase(issue) {
-        return apiRequest('issues/create.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(issue)
-        });
-    }
-
-    async function migrateLegacyIssues() {
-        const pendingIssues = legacyRead('greenmap.issues', []);
-        if (!Array.isArray(pendingIssues) || pendingIssues.length === 0) return 0;
-
-        let migrated = 0;
-        while (pendingIssues.length) {
-            await saveIssueToDatabase(pendingIssues[0]);
-            pendingIssues.shift();
-            migrated += 1;
-
-            if (pendingIssues.length) {
-                legacyWrite('greenmap.issues', pendingIssues);
-            } else {
-                localStorage.removeItem('greenmap.issues');
-            }
-        }
-
-        return migrated;
+        currentUser = { ...currentUser, ...result.profile };
     }
 
     // --- Point-in-polygon barangay lookup -----------------------------------
 
-    // Standard ray-casting point-in-polygon test. `ring` is an array of
-    // [lat, lon] pairs. This is an approximation (OSM boundary relations can
-    // have multiple ways per ring, which we concatenate in the order Overpass
-    // returns them) but is accurate enough for "which barangay is this tree
-    // roughly in".
     function pointInRing(lat, lon, ring) {
         let inside = false;
         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -206,7 +214,7 @@
     }
 
     function locationForTree(tree) {
-        return barangayForPoint(tree.lat, tree.lon);
+        return barangayForPoint(tree.latitude, tree.longitude);
     }
 
     function initMap() {
@@ -226,6 +234,7 @@
         requestStartupLocation();
 
         map.on('click', event => {
+            if (!canSubmitTrees()) return;
             pendingLocation = {
                 lat: event.latlng.lat,
                 lon: event.latlng.lng
@@ -239,7 +248,6 @@
 
         try {
             const response = await fetch(`${apiBaseUrl}boundaries.php`);
-
             if (!response.ok) throw new Error('Boundary request failed');
 
             const data = await response.json();
@@ -257,8 +265,6 @@
                 map.fitBounds(pasigBounds, { padding: [35, 35] });
             }
 
-            // Barangay polygons are ready now - refresh markers/popups/filter
-            // options so trees pick up their computed location.
             markers();
             populateMapFilters();
             applyMapFilters();
@@ -309,19 +315,19 @@
 
         trees().forEach(tree => {
             const location = locationForTree(tree);
-            const marker = L.marker([tree.lat, tree.lon], {
+            const marker = L.marker([tree.latitude, tree.longitude], {
                 icon: treeIcon(),
-                title: tree.name
+                title: tree.species.commonName
             })
                 .addTo(treeLayer)
                 .bindPopup(`
-                    <strong>${escapeHtml(tree.name)}</strong><br>
-                    ${escapeHtml(tree.species)}<br>
-                    <small>${escapeHtml(tree.status || 'Unknown')} &middot; ${escapeHtml(location)}</small>
+                    <strong>${escapeHtml(tree.species.commonName)}</strong><br>
+                    <em>${escapeHtml(tree.species.scientificName)}</em><br>
+                    <small>${escapeHtml(tree.status)} &middot; ${escapeHtml(location)}</small>
                 `)
                 .on('click', () => showTree(tree, location));
 
-            treeMarkers.set(tree.id, { marker, tree, location });
+            treeMarkers.set(tree.treeId, { marker, tree, location });
         });
     }
 
@@ -341,7 +347,7 @@
         return trees()
             .map(tree => ({
                 tree,
-                distance: distanceMeters(coordinates, [tree.lat, tree.lon])
+                distance: distanceMeters(coordinates, [tree.latitude, tree.longitude])
             }))
             .sort((a, b) => a.distance - b.distance)
             .slice(0, limit);
@@ -366,12 +372,9 @@
                 coordinates,
                 ...nearby
                     .filter(item => item.distance <= 3000)
-                    .map(item => [item.tree.lat, item.tree.lon])
+                    .map(item => [item.tree.latitude, item.tree.longitude])
             ]);
-            map.fitBounds(bounds, {
-                padding: [70, 70],
-                maxZoom: 17
-            });
+            map.fitBounds(bounds, { padding: [70, 70], maxZoom: 17 });
         } else {
             map.setView(coordinates, options.zoom || 17);
             if (options.startup) {
@@ -387,14 +390,13 @@
     }
 
     function showTree(tree, location) {
-        $('#tree-img').src = tree.img || 'trees/mango.jpg';
-        $('#tree-name').textContent = tree.name;
-        $('#tree-species').textContent = `Species: ${tree.species}`;
-        $('#tree-planted').textContent = `Planted: ${tree.planted}`;
-        $('#tree-addedby').textContent = `Added by: ${tree.addedBy}`;
+        $('#tree-img').src = tree.photo || 'trees/mango.jpg';
+        $('#tree-name').textContent = tree.species.commonName;
+        $('#tree-species').textContent = `Scientific name: ${tree.species.scientificName}`;
+        $('#tree-planted').textContent = tree.age !== null ? `Age: ${tree.age} years` : 'Age: Unknown';
 
         const statusEl = $('#tree-status');
-        if (statusEl) statusEl.textContent = `Status: ${tree.status || 'Unknown'}`;
+        if (statusEl) statusEl.textContent = `Status: ${tree.status}`;
 
         const locationEl = $('#tree-location');
         if (locationEl) locationEl.textContent = `Barangay: ${location || locationForTree(tree)}`;
@@ -421,7 +423,6 @@
         locationFilter.innerHTML = '<option value="">All Barangays</option>'
             + locations.map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
 
-        // Restore whatever the user had selected, if it's still a valid option.
         if ([...statusFilter.options].some(option => option.value === currentStatus)) {
             statusFilter.value = currentStatus;
         }
@@ -442,7 +443,7 @@
         const hasActiveFilter = Boolean(query || status || location);
 
         treeMarkers.forEach(({ marker, tree, location: treeLocation }) => {
-            const haystack = `${tree.name} ${tree.species}`.toLowerCase();
+            const haystack = `${tree.species.commonName} ${tree.species.scientificName}`.toLowerCase();
             const matchesQuery = !query || haystack.includes(query);
             const matchesStatus = !status || tree.status === status;
             const matchesLocation = !location || treeLocation === location;
@@ -466,7 +467,15 @@
         locationFilter.onchange = applyMapFilters;
     }
 
+    // --- Navigation ------------------------------------------------------------
+
     async function navigate(page) {
+        // "Add Tree" is admin/superadmin only.
+        if (page === 'add-tree' && !canSubmitTrees()) {
+            toast('You do not have permission to submit trees.');
+            return;
+        }
+
         $$('.menu li').forEach(item => {
             item.classList.toggle('active', item.dataset.page === page);
         });
@@ -499,33 +508,34 @@
     }
 
     function setup(page) {
-        if (page === 'add-tree') {
-            addTree();
-        }
-
-        if (page === 'contributions') {
-            contributions();
-        }
-
-        if (page === 'settings') {
-            settings();
-        }
+        if (page === 'add-tree') addTree();
+        if (page === 'contributions') contributions();
+        if (page === 'settings') settings();
 
         if (page === 'dashboard') {
             const allTrees = trees();
             $('#total-trees').textContent = allTrees.length;
-            $('#my-trees').textContent = allTrees.filter(tree => tree.addedBy === 'local_user').length;
-            $('#species-total').textContent = new Set(allTrees.map(tree => tree.species)).size;
+            $('#species-total').textContent = new Set(allTrees.map(tree => tree.species.speciesId)).size;
         }
     }
 
-    function addTree() {
+    async function addTree() {
         const form = $('#add-tree-form');
+        if (!form) return;
 
         if (pendingLocation) {
             form.latitude.value = pendingLocation.lat.toFixed(6);
             form.longitude.value = pendingLocation.lon.toFixed(6);
             pendingLocation = null;
+        }
+
+        // Species select needs the current species list. If your HTML uses
+        // <select name="species_id" id="species-select">, this populates it.
+        try {
+            await loadSpeciesList();
+            populateSpeciesSelect($('#species-select', form));
+        } catch (error) {
+            toast(`Could not load species list: ${error.message}`);
         }
 
         $('#use-location').onclick = () => locate(position => {
@@ -543,24 +553,19 @@
 
             try {
                 await saveTreeToDatabase({
-                name: data.get('name').trim(),
-                species: data.get('species').trim(),
-                status: data.get('status') || 'Unknown',
-                lat: Number(data.get('latitude')),
-                lon: Number(data.get('longitude')),
-                planted: data.get('planted'),
-                active: data.get('active') === 'on',
-                img: 'trees/mango.jpg'
+                    speciesId: Number(data.get('species_id')),
+                    status: data.get('status') || 'Healthy',
+                    age: data.get('age') ? Number(data.get('age')) : null,
+                    lat: Number(data.get('latitude')),
+                    lon: Number(data.get('longitude')),
+                    photo: null // wire up file upload separately when that endpoint exists
                 });
 
-                await loadDatabaseTrees();
-                markers();
-                populateMapFilters();
-                applyMapFilters();
-                toast('Tree saved to the GreenMap database.');
+                toast('Tree submitted and is pending admin review.');
                 navigate('contributions');
             } catch (error) {
                 toast(error.message);
+            } finally {
                 submitButton.disabled = false;
             }
         };
@@ -573,98 +578,44 @@
     };
 
     function contributions() {
-        const localTrees = trees().filter(tree => tree.addedBy === 'local_user');
+        // Note: tree_submissions doesn't currently expose "my submissions"
+        // filtered by user, so this shows every approved tree for now.
+        // A submissions/list.php?mine=1 endpoint would be the real fix.
+        const allTrees = trees();
         const body = $('#contributions-body');
+        if (!body) return;
 
-        body.innerHTML = localTrees.length
-            ? localTrees.map(tree => `
+        body.innerHTML = allTrees.length
+            ? allTrees.map(tree => `
                 <tr>
-                    <td>${escapeHtml(tree.name)}</td>
-                    <td>${escapeHtml(tree.planted)}</td>
-                    <td>${tree.lat.toFixed(4)}, ${tree.lon.toFixed(4)}</td>
+                    <td>${escapeHtml(tree.species.commonName)}</td>
+                    <td>${escapeHtml(tree.status)}</td>
+                    <td>${tree.latitude.toFixed(4)}, ${tree.longitude.toFixed(4)}</td>
                     <td>
-                        <button data-view="${tree.id}">View</button>
-                        <button class="danger-link" data-remove="${tree.id}">Remove</button>
+                        <button data-view="${tree.treeId}">View</button>
                     </td>
                 </tr>
             `).join('')
-            : '<tr><td colspan="4" class="empty-state">No database contributions yet.</td></tr>';
+            : '<tr><td colspan="4" class="empty-state">No trees yet.</td></tr>';
 
         $$('[data-view]', body).forEach(button => {
             button.onclick = () => {
-                const tree = localTrees.find(item => item.id == button.dataset.view);
+                const tree = allTrees.find(item => item.treeId == button.dataset.view);
                 navigate('map').then(() => {
-                    map.setView([tree.lat, tree.lon], 18);
+                    map.setView([tree.latitude, tree.longitude], 18);
                     showTree(tree, locationForTree(tree));
                 });
-            };
-        });
-
-        $$('[data-remove]', body).forEach(button => {
-            button.onclick = async () => {
-                if (!confirm('Remove this tree from the database?')) return;
-
-                button.disabled = true;
-                try {
-                    await apiRequest('trees/delete.php', {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tree_id: Number(button.dataset.remove) })
-                    });
-                    await loadDatabaseTrees();
-                    markers();
-                    populateMapFilters();
-                    applyMapFilters();
-                    contributions();
-                    toast('Tree removed from the database.');
-                } catch (error) {
-                    toast(error.message);
-                    button.disabled = false;
-                }
             };
         });
     }
 
     function settings() {
-        const savedProfile = profile();
-        const form = $('#profile-form');
-
-        form.name.value = savedProfile.name === 'User' ? '' : savedProfile.name;
-        form.email.value = savedProfile.email;
-        form.phone.value = savedProfile.phone;
-        form.emailNotifications.checked = savedProfile.emailNotifications;
-        form.trackingAlerts.checked = savedProfile.trackingAlerts;
-
-        form.onsubmit = async event => {
-            event.preventDefault();
-            if (!form.reportValidity()) return;
-
-            const data = new FormData(form);
-            const updatedProfile = {
-                name: data.get('name').trim(),
-                email: data.get('email').trim(),
-                phone: data.get('phone').trim(),
-                emailNotifications: data.has('emailNotifications'),
-                trackingAlerts: data.has('trackingAlerts')
-            };
-
-            const submitButton = form.querySelector('[type="submit"]');
-            submitButton.disabled = true;
-            try {
-                await saveProfileToDatabase(updatedProfile);
-                currentProfile = updatedProfile;
-                welcome();
-                toast('Profile saved to the GreenMap database.');
-            } catch (error) {
-                toast(error.message);
-            } finally {
-                submitButton.disabled = false;
-            }
-        };
-
-        $$('.requires-database').forEach(button => {
-            button.onclick = () => toast('Available after database and authentication setup.');
-        });
+        const nameEl = $('#profile-name');
+        const roleEl = $('#profile-role');
+        if (nameEl) nameEl.textContent = currentUser?.name || '';
+        if (roleEl) roleEl.textContent = currentUser?.role || '';
+        // Profile is read-only for now — no phone/email/notification fields
+        // exist in the current users table.
     }
 
     function locate(done, options = {}) {
@@ -684,84 +635,65 @@
                 $('#gps-button').textContent = 'GPS: Unavailable';
                 toast('Location access was denied or unavailable.');
             },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000
-            }
+            { enableHighAccuracy: true, timeout: 10000 }
         );
     }
 
     function welcome() {
-        $('#welcome-user').textContent = `Welcome, ${profile().name || 'User'}`;
+        const el = $('#welcome-user');
+        if (el) el.textContent = `Welcome, ${currentUser?.name || 'Guest'}`;
+    }
+
+    function applyRoleVisibility() {
+        // Hide the "Add Tree" menu item for anyone who isn't admin/superadmin.
+        $$('.menu li[data-page="add-tree"]').forEach(item => {
+            item.classList.toggle('hidden', !canSubmitTrees());
+        });
+        // Example hook for a future superadmin-only "Manage Accounts" page.
+        $$('.menu li[data-page="manage-accounts"]').forEach(item => {
+            item.classList.toggle('hidden', !isSuperadmin());
+        });
+
+        // Toggle login/logout buttons based on auth state.
+        $('#login-trigger')?.classList.toggle('hidden', isLoggedIn());
+        $('#logout-button')?.classList.toggle('hidden', !isLoggedIn());
     }
 
     $$('.menu li').forEach(item => {
         item.onclick = () => navigate(item.dataset.page);
     });
 
-    $('.menu-toggle').onclick = () => $('.menu').classList.toggle('open');
-    $('#close-tree-popup').onclick = () => $('.tree-popup').classList.add('hidden');
-    $('#gps-button').onclick = () => locate();
+    $('.menu-toggle')?.addEventListener('click', () => $('.menu').classList.toggle('open'));
+    $('#close-tree-popup')?.addEventListener('click', () => $('.tree-popup').classList.add('hidden'));
+    $('#gps-button')?.addEventListener('click', () => locate());
+    $('#login-trigger')?.addEventListener('click', showLoginScreen);
+    $('#cancel-login')?.addEventListener('click', () => $('#login-dialog').close());
+    
 
-    const dialog = $('#issue-dialog');
-    $('.issue-btn').onclick = () => dialog.showModal();
-    $('#cancel-issue').onclick = () => dialog.close();
-    $('#issue-form').onsubmit = async event => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const submitButton = form.querySelector('[type="submit"]');
-        submitButton.disabled = true;
+    setupLoginForm();
+    setupLogoutButton();
+
+
+    async function bootApp() {
+        await checkAuth();
+
+        // Public visitors are never gated behind login — only role-restricted
+        // actions (Add Tree, account management) check auth individually.
+        showApp();
+        applyRoleVisibility();
+        welcome();
 
         try {
-            await saveIssueToDatabase({
-            type: $('#issue-type').value,
-            details: $('#issue-details').value.trim()
-            });
-            form.reset();
-            dialog.close();
-            toast('Issue report saved to the database.');
+            await loadDatabaseTrees();
+            if (isLoggedIn()) {
+                await loadProfile();
+            }
         } catch (error) {
-            toast(error.message);
-        } finally {
-            submitButton.disabled = false;
+            toast(`Database data could not be loaded: ${error.message}`);
         }
-    };
 
-    pendingLocation = legacyRead('greenmap.pendingLocation', null);
-    localStorage.removeItem('greenmap.pendingLocation');
-
-    let migratedTreeCount = 0;
-    let migratedIssueCount = 0;
-    try {
-        migratedTreeCount = await migrateLocalTrees();
-    } catch (error) {
-        toast(`Local tree migration paused: ${error.message}`);
+        await navigate('map');
     }
 
-    try {
-        await migrateLegacyProfile();
-    } catch (error) {
-        toast(`Local profile migration paused: ${error.message}`);
-    }
-
-    try {
-        migratedIssueCount = await migrateLegacyIssues();
-    } catch (error) {
-        toast(`Local issue migration paused: ${error.message}`);
-    }
-
-    try {
-        await Promise.all([loadDatabaseTrees(), loadDatabaseProfile()]);
-    } catch (error) {
-        toast(`Database data could not be loaded: ${error.message}`);
-    }
-
-    welcome();
-    initMap();
-
-    if (migratedTreeCount) {
-        toast(`${migratedTreeCount} local tree${migratedTreeCount === 1 ? '' : 's'} moved to the database.`);
-    } else if (migratedIssueCount) {
-        toast(`${migratedIssueCount} local issue report${migratedIssueCount === 1 ? '' : 's'} moved to the database.`);
-    }
+    await bootApp();
 })();

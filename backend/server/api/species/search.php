@@ -11,8 +11,8 @@ try {
             common_name AS name,
             scientific_name AS scientificName,
             image_path AS img
-         FROM species
-         ORDER BY common_name ASC'
+        FROM species
+        ORDER BY common_name ASC'
     );
 
     $species = $result->fetch_all(MYSQLI_ASSOC);
