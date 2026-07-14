@@ -15,6 +15,32 @@
         'manage-admins': 'Manage Admins',
         settings: 'Settings'
     };
+    const PASIG_BARANGAYS = Object.freeze([
+        'Bagong Ilog',
+        'Bagong Katipunan',
+        'Buting',
+        'Caniogan',
+        'Dela Paz',
+        'Kalawaan',
+        'Kapasigan',
+        'Kapitolyo',
+        'Manggahan',
+        'Maybunga',
+        'Oranbo',
+        'Pinagbuhatan',
+        'Pineda',
+        'Rosario',
+        'Sagad',
+        'San Antonio',
+        'San Joaquin',
+        'San Jose',
+        'San Miguel',
+        'Santa Lucia',
+        'Santa Rosa',
+        'Santolan',
+        'Sumilang',
+        'Ugong'
+    ]);
 
     let map;
     let treeLayer;
@@ -27,9 +53,14 @@
     let pendingLocation = null;
     let currentUser = null; // { name, role } or null if not logged in
     let locationSource = 'Not requested';
+    let selectedTreePhotoUrl = '';
+    let dashboardBarangayFilter = '';
 
-    // Barangay boundary polygons, populated once Overpass data loads.
+    // Boundary data is loaded before the dashboard so filters work even if
+    // the user has not opened the map yet.
     let barangayPolygons = [];
+    let boundaryRelations = [];
+    let boundaryDataPromise = null;
 
     // tree id -> { marker, tree } so the filter can dim/restore markers
     // without re-fetching or re-building them.
@@ -312,6 +343,43 @@
         return barangayForPoint(tree.latitude, tree.longitude);
     }
 
+    function relationRing(relation) {
+        return relation.members
+            ?.filter(member => member.type === 'way' && member.role !== 'inner' && member.geometry?.length)
+            .flatMap(member => member.geometry.map(point => [point.lat, point.lon])) || [];
+    }
+
+    async function loadBoundaryData() {
+        if (boundaryRelations.length) return boundaryRelations;
+        if (boundaryDataPromise) return boundaryDataPromise;
+
+        boundaryDataPromise = (async () => {
+            const response = await fetch(`${apiBaseUrl}boundaries.php`);
+            if (!response.ok) throw new Error('Boundary request failed');
+
+            const data = await response.json();
+            const relations = data.elements
+                ?.filter(element => element.type === 'relation') || [];
+            if (!relations.length) throw new Error('Boundary response was empty');
+
+            boundaryRelations = relations;
+            barangayPolygons = relations
+                .filter(relation => relation.tags?.admin_level === '10')
+                .map(relation => ({
+                    name: relation.tags?.name || 'Barangay',
+                    ring: relationRing(relation)
+                }))
+                .filter(polygon => polygon.ring.length);
+
+            return boundaryRelations;
+        })().catch(error => {
+            boundaryDataPromise = null;
+            throw error;
+        });
+
+        return boundaryDataPromise;
+    }
+
     function initMap() {
         if (map || !window.L) return;
 
@@ -342,17 +410,10 @@
         if (!boundaryLayer) return;
 
         try {
-            const response = await fetch(`${apiBaseUrl}boundaries.php`);
-            if (!response.ok) throw new Error('Boundary request failed');
-
-            const data = await response.json();
-            const relations = data.elements
-                ?.filter(element => element.type === 'relation') || [];
-            if (!relations.length) throw new Error('Boundary response was empty');
+            const relations = await loadBoundaryData();
 
             const pasigBounds = L.latLngBounds([]);
             boundaryLayer.clearLayers();
-            barangayPolygons = [];
 
             relations.forEach(relation => drawBoundary(relation, pasigBounds));
 
@@ -377,8 +438,6 @@
             fill: false
         };
 
-        const ringPoints = [];
-
         relation.members
             ?.filter(member => member.type === 'way' && member.geometry?.length)
             .forEach(member => {
@@ -389,17 +448,8 @@
 
                 if (isPasigCity) {
                     pasigBounds.extend(line.getBounds());
-                } else {
-                    ringPoints.push(...coordinates);
                 }
             });
-
-        if (!isPasigCity && ringPoints.length) {
-            barangayPolygons.push({
-                name: relation.tags?.name || 'Barangay',
-                ring: ringPoints
-            });
-        }
     }
 
     function markers() {
@@ -486,11 +536,14 @@
 
     function showTree(tree, location) {
         const image = $('#tree-img');
+        selectedTreePhotoUrl = tree.photo || 'trees/mango.jpg';
         image.onerror = () => {
             image.onerror = null;
             image.src = 'trees/mango.jpg';
+            selectedTreePhotoUrl = 'trees/mango.jpg';
         };
-        image.src = tree.photo || 'trees/mango.jpg';
+        image.src = selectedTreePhotoUrl;
+        image.alt = `${tree.species.commonName} tree`;
         $('#tree-name').textContent = tree.species.commonName;
         $('#tree-species').textContent = `Scientific name: ${tree.species.scientificName}`;
         $('#tree-planted').textContent = tree.age !== null ? `Age: ${tree.age} years` : 'Age: Unknown';
@@ -505,7 +558,32 @@
         const addedBy = tree.addedBy || tree.submittedBy?.name || currentUser?.name || 'Unknown';
         if (addedByEl) addedByEl.textContent = `Added by: ${addedBy}`;
 
+        const streetViewLink = $('#view-streetview');
+        if (streetViewLink) {
+            const coordinates = encodeURIComponent(`${tree.latitude},${tree.longitude}`);
+            streetViewLink.href = `https://www.instantstreetview.com/s/${coordinates}`;
+        }
+
         $('.tree-popup').classList.remove('hidden');
+    }
+
+    function openTreePhoto() {
+        const source = $('#tree-img');
+        const fullscreenImage = $('#fullscreen-tree-img');
+        const dialog = $('#photo-viewer-dialog');
+        if (!source || !fullscreenImage || !dialog) return;
+
+        fullscreenImage.onerror = () => {
+            fullscreenImage.onerror = null;
+            fullscreenImage.src = 'trees/mango.jpg';
+        };
+        fullscreenImage.src = selectedTreePhotoUrl || source.src;
+        fullscreenImage.alt = source.alt || 'Tree photo';
+        dialog.showModal();
+    }
+
+    function closeTreePhoto() {
+        $('#photo-viewer-dialog')?.close();
     }
 
     // --- Map search / filter bar ---------------------------------------------
@@ -638,8 +716,33 @@
     }
 
     function setupDashboard() {
-        const allTrees = trees();
-        const myTrees = contributionsByCurrentAdmin();
+        const barangayFilter = $('#dashboard-barangay-filter');
+        if (barangayFilter) {
+            barangayFilter.innerHTML = '<option value="">All Barangays</option>'
+                + PASIG_BARANGAYS.map(barangay => `<option value="${escapeHtml(barangay)}">${escapeHtml(barangay)}</option>`).join('');
+            barangayFilter.value = dashboardBarangayFilter;
+            barangayFilter.onchange = () => {
+                dashboardBarangayFilter = barangayFilter.value;
+                renderDashboard();
+            };
+        }
+
+        const reportButton = $('#generate-report');
+        if (reportButton) reportButton.onclick = generateReport;
+
+        renderDashboard();
+        applyRoleVisibility();
+    }
+
+    function recordsForBarangay(records, barangay = dashboardBarangayFilter) {
+        return barangay
+            ? records.filter(tree => locationForTree(tree) === barangay)
+            : records;
+    }
+
+    function renderDashboard() {
+        const allTrees = recordsForBarangay(trees());
+        const myTrees = recordsForBarangay(contributionsByCurrentAdmin());
 
         $('#total-trees').textContent = allTrees.length;
         $('#species-total').textContent = new Set(allTrees.map(tree => tree.species.speciesId)).size;
@@ -650,11 +753,6 @@
         renderStatusChart(allTrees);
         renderActivityList($('#recent-activity'), allTrees, 'No tree activity has been recorded yet.');
         renderActivityList($('#dashboard-contributions'), myTrees, 'You have no approved contributions yet.');
-
-        const reportButton = $('#generate-report');
-        if (reportButton) reportButton.onclick = generateReport;
-
-        applyRoleVisibility();
     }
 
     function renderSpeciesChart(allTrees) {
@@ -744,15 +842,16 @@
             return;
         }
 
-        const records = trees();
+        const records = recordsForBarangay(trees());
         const rows = [
-            ['Tree ID', 'Common Name', 'Scientific Name', 'Status', 'Age', 'Latitude', 'Longitude', 'Submitted At', 'Added By'],
+            ['Tree ID', 'Common Name', 'Scientific Name', 'Status', 'Age', 'Barangay', 'Latitude', 'Longitude', 'Submitted At', 'Added By'],
             ...records.map(tree => [
                 tree.treeId,
                 tree.species.commonName,
                 tree.species.scientificName,
                 tree.status,
                 tree.age,
+                locationForTree(tree),
                 tree.latitude,
                 tree.longitude,
                 tree.submittedAt,
@@ -763,10 +862,14 @@
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `greenmap-tree-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        const barangaySuffix = dashboardBarangayFilter
+            ? `-${dashboardBarangayFilter.toLowerCase().replaceAll(' ', '-')}`
+            : '';
+        link.download = `greenmap-tree-report${barangaySuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
         URL.revokeObjectURL(url);
-        toast(`Report generated with ${records.length} tree record${records.length === 1 ? '' : 's'}.`);
+        const scope = dashboardBarangayFilter || 'all barangays';
+        toast(`Report generated for ${scope} with ${records.length} tree record${records.length === 1 ? '' : 's'}.`);
     }
 
     async function addTree() {
@@ -1152,6 +1255,11 @@
 
     $('.menu-toggle')?.addEventListener('click', () => $('.menu').classList.toggle('open'));
     $('#close-tree-popup')?.addEventListener('click', () => $('.tree-popup').classList.add('hidden'));
+    $('#tree-photo-trigger')?.addEventListener('click', openTreePhoto);
+    $('#close-photo-viewer')?.addEventListener('click', closeTreePhoto);
+    $('#photo-viewer-dialog')?.addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeTreePhoto();
+    });
     $('#gps-button')?.addEventListener('click', () => locate());
     $('#login-trigger')?.addEventListener('click', showLoginScreen);
     $('#cancel-login')?.addEventListener('click', () => $('#login-dialog').close());
@@ -1178,6 +1286,12 @@
             }
         } catch (error) {
             toast(`Database data could not be loaded: ${error.message}`);
+        }
+
+        try {
+            await loadBoundaryData();
+        } catch {
+            toast('Barangay boundaries could not be loaded. Barangay filters may be unavailable.');
         }
 
         await navigate('dashboard');

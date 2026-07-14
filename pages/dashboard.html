@@ -1,12 +1,20 @@
 <section class="view-stack">
     <header class="panel-header dashboard-header">
-        <div>
+        <div class="dashboard-title">
             <span>Overview</span>
             <h2>Dashboard</h2>
         </div>
-        <button type="button" class="primary-action report-action" id="generate-report" data-admin-only>
-            Generate Report
-        </button>
+        <div class="dashboard-actions">
+            <label class="dashboard-barangay-filter" for="dashboard-barangay-filter">
+                <span>Barangay</span>
+                <select id="dashboard-barangay-filter">
+                    <option value="">All Barangays</option>
+                </select>
+            </label>
+            <button type="button" class="primary-action report-action" id="generate-report" data-admin-only>
+                Generate Report
+            </button>
+        </div>
     </header>
 
     <div class="dash-grid">

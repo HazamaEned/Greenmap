@@ -324,20 +324,12 @@ button {
     border-color: var(--green);
 }
 
-.legend-dot {
-    width: 11px;
-    height: 11px;
-    border-radius: 999px;
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 0 1px #0000001c;
-}
-
-.legend-dot.tree {
-    background: var(--green);
-}
-
-.legend-dot.location {
-    background: var(--blue);
+.legend-emoji {
+    width: 24px;
+    font-size: 20px;
+    font-style: normal;
+    line-height: 1;
+    text-align: center;
 }
 
 .tree-popup {
@@ -357,6 +349,21 @@ button {
     object-fit: cover;
 }
 
+.tree-photo-trigger {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    cursor: zoom-in;
+}
+
+.tree-photo-trigger:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: -3px;
+}
+
 .tree-popup .info {
     padding: 14px;
 }
@@ -373,15 +380,32 @@ button {
     font-size: 13px;
 }
 
-.tree-popup button {
+.tree-popup-actions > * {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     min-height: 36px;
-    margin-top: 12px;
     border: 1px solid var(--line-strong);
     border-radius: 8px;
     background: #f8faf6;
     color: var(--ink);
     font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+}
+
+.tree-popup-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.tree-popup .primary {
+    border-color: var(--green);
+    background: var(--green);
+    color: #ffffff;
 }
 
 .gps-status {
@@ -405,26 +429,20 @@ button {
 .greenmap-marker {
     display: grid;
     place-items: center;
-    border-radius: 999px 999px 999px 0;
-    box-shadow: 0 3px 10px #0005;
-    transform: rotate(-45deg);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
 }
 
 .greenmap-marker span {
     display: block;
-    font-size: 20px;
+    font-size: 28px;
     line-height: 1;
-    transform: rotate(45deg);
+    filter: drop-shadow(0 2px 2px #0006);
 }
 
-.greenmap-user-marker {
-    background: var(--blue);
-    border: 3px solid #ffffff;
-}
-
-.greenmap-tree-marker {
-    background: var(--green);
-    border: 3px solid #ffffff;
+.greenmap-user-marker span {
+    font-size: 30px;
 }
 
 .leaflet-control-zoom a {
@@ -513,6 +531,59 @@ dialog small {
     color: var(--muted);
 }
 
+#photo-viewer-dialog {
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 0;
+    background: #050806;
+}
+
+#photo-viewer-dialog::backdrop {
+    background: #050806;
+}
+
+.photo-viewer-content {
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    place-items: center;
+}
+
+#fullscreen-tree-img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+#close-photo-viewer {
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    display: grid;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid #ffffff66;
+    border-radius: 50%;
+    background: #101713d9;
+    color: #ffffff;
+    box-shadow: 0 4px 16px #0008;
+    font-size: 28px;
+    line-height: 1;
+}
+
 .dialog-actions {
     display: flex;
     justify-content: flex-end;
@@ -570,6 +641,10 @@ html[data-theme="dark"] .map-legend span {
 
 html[data-theme="dark"] .tree-popup button {
     background: var(--surface-soft);
+}
+
+html[data-theme="dark"] .tree-popup .primary {
+    background: var(--green);
 }
 
 html[data-theme="dark"] .leaflet-tile-pane {

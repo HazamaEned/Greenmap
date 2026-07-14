@@ -13,8 +13,8 @@
     </script>
     <link rel="icon" type="image/png" href="assets/greenmap-icon-64.png">
     <link rel="apple-touch-icon" href="assets/greenmap-icon-192.png">
-    <link rel="stylesheet" href="style.css?v=3">
-    <link rel="stylesheet" href="pages/app-styles.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="pages/app-styles.css?v=7">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
@@ -27,7 +27,7 @@
                 </span>
                 <div>
                     <h1>GreenMap</h1>
-                    <small>Pasig tree inventory</small>
+                    <small>Pasig Tree Inventory</small>
                 </div>
             </div>
 
@@ -83,12 +83,14 @@
                     <div class="map-legend" aria-label="Map legend">
                         <span><i class="legend-line city"></i>Pasig City</span>
                         <span><i class="legend-line barangay"></i>Barangays</span>
-                        <span><i class="legend-dot tree"></i>Trees</span>
-                        <span><i class="legend-dot location"></i>My Location</span>
+                        <span><i class="legend-emoji" aria-hidden="true">&#127794;</i>Trees</span>
+                        <span><i class="legend-emoji" aria-hidden="true">&#128205;</i>My Location</span>
                     </div>
 
                     <aside class="tree-popup hidden">
-                        <img id="tree-img" src="trees/mango.jpg" alt="Tree">
+                        <button id="tree-photo-trigger" class="tree-photo-trigger" type="button" aria-label="View tree photo fullscreen">
+                            <img id="tree-img" src="trees/mango.jpg" alt="Tree">
+                        </button>
                         <div class="info">
                             <h3 id="tree-name">Tree Details</h3>
                             <p id="tree-species">Species: -</p>
@@ -96,7 +98,10 @@
                             <p id="tree-location">Barangay: -</p>
                             <p id="tree-planted">Planted: -</p>
                             <p id="tree-addedby">Added by: -</p>
-                            <button id="close-tree-popup" type="button">Close</button>
+                            <div class="tree-popup-actions">
+                                <a id="view-streetview" class="primary" href="https://www.instantstreetview.com/" target="_blank" rel="noopener noreferrer">InstantStreetView</a>
+                                <button id="close-tree-popup" type="button">Close</button>
+                            </div>
                         </div>
                     </aside>
                 </div>
@@ -111,6 +116,13 @@
     </div>
 
     <div id="toast" class="toast hidden" role="status"></div>
+
+    <dialog id="photo-viewer-dialog" aria-label="Fullscreen tree photo">
+        <div class="photo-viewer-content">
+            <img id="fullscreen-tree-img" alt="">
+            <button id="close-photo-viewer" type="button" aria-label="Exit fullscreen photo">&times;</button>
+        </div>
+    </dialog>
 
     <dialog id="issue-dialog">
         <form id="issue-form">
@@ -161,6 +173,6 @@
             apiBaseUrl: 'backend/server/api/'
         };
     </script>
-    <script src="app.js?v=13"></script>
+    <script src="app.js?v=18"></script>
 </body>
 </html>
