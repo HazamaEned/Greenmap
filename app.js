@@ -18,15 +18,18 @@
     const PASIG_BARANGAYS = Object.freeze([
         'Bagong Ilog',
         'Bagong Katipunan',
+        'Bambang',
         'Buting',
         'Caniogan',
         'Dela Paz',
         'Kalawaan',
         'Kapasigan',
         'Kapitolyo',
+        'Malinao',
         'Manggahan',
         'Maybunga',
         'Oranbo',
+        'Palatiw',
         'Pinagbuhatan',
         'Pineda',
         'Rosario',
@@ -35,8 +38,11 @@
         'San Joaquin',
         'San Jose',
         'San Miguel',
+        'San Nicolas',
+        'Santa Cruz',
         'Santa Lucia',
         'Santa Rosa',
+        'Santo Tomas',
         'Santolan',
         'Sumilang',
         'Ugong'
@@ -59,7 +65,7 @@
     // Boundary data is loaded before the dashboard so filters work even if
     // the user has not opened the map yet.
     let barangayPolygons = [];
-    let boundaryRelations = [];
+    let boundaryData = null;
     let boundaryDataPromise = null;
 
     // tree id -> { marker, tree } so the filter can dim/restore markers
@@ -325,8 +331,8 @@
     function pointInRing(lat, lon, ring) {
         let inside = false;
         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-            const [latI, lonI] = ring[i];
-            const [latJ, lonJ] = ring[j];
+            const [lonI, latI] = ring[i];
+            const [lonJ, latJ] = ring[j];
             const intersects = ((lonI > lon) !== (lonJ > lon))
                 && (lat < (latJ - latI) * (lon - lonI) / (lonJ - lonI) + latI);
             if (intersects) inside = !inside;
@@ -334,8 +340,23 @@
         return inside;
     }
 
+    function pointInPolygon(lat, lon, rings) {
+        if (!rings?.length || !pointInRing(lat, lon, rings[0])) return false;
+        return !rings.slice(1).some(hole => pointInRing(lat, lon, hole));
+    }
+
+    function geometryContainsPoint(geometry, lat, lon) {
+        if (geometry?.type === 'Polygon') {
+            return pointInPolygon(lat, lon, geometry.coordinates);
+        }
+        if (geometry?.type === 'MultiPolygon') {
+            return geometry.coordinates.some(polygon => pointInPolygon(lat, lon, polygon));
+        }
+        return false;
+    }
+
     function barangayForPoint(lat, lon) {
-        const match = barangayPolygons.find(polygon => pointInRing(lat, lon, polygon.ring));
+        const match = barangayPolygons.find(polygon => geometryContainsPoint(polygon.geometry, lat, lon));
         return match ? match.name : 'Unmapped';
     }
 
@@ -343,14 +364,8 @@
         return barangayForPoint(tree.latitude, tree.longitude);
     }
 
-    function relationRing(relation) {
-        return relation.members
-            ?.filter(member => member.type === 'way' && member.role !== 'inner' && member.geometry?.length)
-            .flatMap(member => member.geometry.map(point => [point.lat, point.lon])) || [];
-    }
-
     async function loadBoundaryData() {
-        if (boundaryRelations.length) return boundaryRelations;
+        if (boundaryData) return boundaryData;
         if (boundaryDataPromise) return boundaryDataPromise;
 
         boundaryDataPromise = (async () => {
@@ -358,20 +373,21 @@
             if (!response.ok) throw new Error('Boundary request failed');
 
             const data = await response.json();
-            const relations = data.elements
-                ?.filter(element => element.type === 'relation') || [];
-            if (!relations.length) throw new Error('Boundary response was empty');
+            const features = data.barangays?.features || [];
+            if (features.length !== PASIG_BARANGAYS.length) {
+                throw new Error(`Expected ${PASIG_BARANGAYS.length} barangay boundaries, received ${features.length}`);
+            }
 
-            boundaryRelations = relations;
-            barangayPolygons = relations
-                .filter(relation => relation.tags?.admin_level === '10')
-                .map(relation => ({
-                    name: relation.tags?.name || 'Barangay',
-                    ring: relationRing(relation)
-                }))
-                .filter(polygon => polygon.ring.length);
+            barangayPolygons = features.map(feature => ({
+                name: feature.properties?.name || 'Barangay',
+                geometry: feature.geometry
+            }));
+            boundaryData = {
+                barangays: data.barangays,
+                cityBoundary: data.cityBoundary || null
+            };
 
-            return boundaryRelations;
+            return boundaryData;
         })().catch(error => {
             boundaryDataPromise = null;
             throw error;
@@ -410,12 +426,13 @@
         if (!boundaryLayer) return;
 
         try {
-            const relations = await loadBoundaryData();
+            const data = await loadBoundaryData();
 
             const pasigBounds = L.latLngBounds([]);
             boundaryLayer.clearLayers();
 
-            relations.forEach(relation => drawBoundary(relation, pasigBounds));
+            drawBarangayBoundaries(data.barangays, pasigBounds);
+            if (data.cityBoundary) drawCityBoundary(data.cityBoundary, pasigBounds);
 
             if (pasigBounds.isValid() && !userMarker) {
                 map.fitBounds(pasigBounds, { padding: [35, 35] });
@@ -429,12 +446,26 @@
         }
     }
 
-    function drawBoundary(relation, pasigBounds) {
-        const isPasigCity = relation.tags?.admin_level === '6';
+    function drawBarangayBoundaries(featureCollection, pasigBounds) {
+        const layer = L.geoJSON(featureCollection, {
+            style: {
+                color: '#2f8f46',
+                weight: 2,
+                opacity: 0.85,
+                fill: false
+            },
+            onEachFeature: (feature, featureLayer) => {
+                featureLayer.bindPopup(`${feature.properties?.name || 'Barangay'} boundary`);
+            }
+        }).addTo(boundaryLayer);
+        pasigBounds.extend(layer.getBounds());
+    }
+
+    function drawCityBoundary(relation, pasigBounds) {
         const style = {
-            color: isPasigCity ? '#1769aa' : '#2f8f46',
-            weight: isPasigCity ? 5 : 2,
-            opacity: isPasigCity ? 0.95 : 0.85,
+            color: '#1769aa',
+            weight: 5,
+            opacity: 0.95,
             fill: false
         };
 
@@ -444,11 +475,8 @@
                 const coordinates = member.geometry.map(point => [point.lat, point.lon]);
                 const line = L.polyline(coordinates, style)
                     .addTo(boundaryLayer)
-                    .bindPopup(isPasigCity ? 'Pasig City boundary' : `${relation.tags?.name || 'Barangay'} boundary`);
-
-                if (isPasigCity) {
-                    pasigBounds.extend(line.getBounds());
-                }
+                    .bindPopup('Pasig City boundary');
+                pasigBounds.extend(line.getBounds());
             });
     }
 
