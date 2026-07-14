@@ -4,6 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $cacheDirectory = dirname(__DIR__) . '/cache';
 $cacheFile = $cacheDirectory . '/pasig-boundaries-v2.json';
+$legacyCacheFile = $cacheDirectory . '/pasig-boundaries.json';
 $cacheLifetime = 7 * 24 * 60 * 60;
 
 if (is_file($cacheFile) && time() - filemtime($cacheFile) < $cacheLifetime) {
@@ -58,47 +59,18 @@ $hasCompleteBarangayData = $barangayStatus === 200
     && count($features) === count($canonicalNames)
     && $receivedNames === $expectedNames;
 
-$cityQuery = <<<'OVERPASS'
-[out:json][timeout:25];
-relation["name"~"^(Pasig|City of Pasig)$"]["boundary"="administrative"]["admin_level"="6"];
-out geom;
-OVERPASS;
-
-$endpoints = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass.nchc.org.tw/api/interpreter'
-];
-
-// The city outline is decorative; barangay geometry remains usable if Overpass is down.
+// Preserve the existing Pasig city outline without making barangay refreshes
+// depend on a second external service. The authoritative barangay polygons are
+// fetched independently from the government GeoRisk service above.
 $cityBoundary = null;
-foreach ($hasCompleteBarangayData ? $endpoints : [] as $endpoint) {
-    $curl = curl_init($endpoint);
-    curl_setopt_array($curl, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => http_build_query(['data' => $cityQuery]),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_TIMEOUT => 35,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-        CURLOPT_USERAGENT => 'GreenMap/1.0 local development'
-    ]);
-
-    $body = curl_exec($curl);
-    $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    curl_close($curl);
-
-    if ($status !== 200 || !is_string($body)) continue;
-
-    $data = json_decode($body, true);
+if (is_file($legacyCacheFile)) {
+    $legacyData = json_decode(file_get_contents($legacyCacheFile), true);
     $relations = array_values(array_filter(
-        $data['elements'] ?? [],
+        $legacyData['elements'] ?? [],
         static fn(array $element): bool => ($element['type'] ?? '') === 'relation'
+            && ($element['tags']['admin_level'] ?? '') === '6'
     ));
-
-    if (!$relations) continue;
-    $cityBoundary = $relations[0];
-    break;
+    $cityBoundary = $relations[0] ?? null;
 }
 
 if ($hasCompleteBarangayData) {
