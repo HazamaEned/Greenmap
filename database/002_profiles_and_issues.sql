@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS issue_reports (
     issue_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     issue_type VARCHAR(50) NOT NULL,
     details VARCHAR(500) NOT NULL,
-    reported_by INT UNSIGNED NOT NULL,
+    reported_by INT UNSIGNED NULL,
     reported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_issue_reports_user (reported_by),

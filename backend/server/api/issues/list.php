@@ -27,7 +27,7 @@ try {
         u.name AS reporter_name,
         u.email AS reporter_email
     FROM issue_reports ir
-    INNER JOIN users u ON u.id = ir.reported_by
+    LEFT JOIN users u ON u.id = ir.reported_by
     ORDER BY reported_at DESC
 ';
 

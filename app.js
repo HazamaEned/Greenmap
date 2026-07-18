@@ -13,8 +13,10 @@
         contributions: 'My Contributions',
         'review-contributions': 'Review Contributions',
         'manage-admins': 'Manage Admins',
-        settings: 'Settings'
+        settings: 'Settings',
+        'report-issue': 'Report Issue'
     };
+    pageTitles['reports'] = 'Issue Reports'; // Add new page title
     const PASIG_BARANGAYS = Object.freeze([
         'Bagong Ilog',
         'Bagong Katipunan',
@@ -317,6 +319,11 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(admin),
         });
+    }
+
+    async function loadIssueReports() {
+        const result = await apiRequest('issues/list.php');
+        return result.reports;
     }
 
     // --- Profile ---------------------------------------------------------------
@@ -685,7 +692,7 @@
             return;
         }
 
-        if (['review-contributions', 'manage-admins'].includes(page) && !isSuperadmin()) {
+        if (['review-contributions', 'manage-admins', 'reports'].includes(page) && !isSuperadmin()) {
             toast('Superadmin access is required to open that page.');
             return;
         }
@@ -733,6 +740,8 @@
         if (page === 'review-contributions') reviewContributions();
         if (page === 'manage-admins') manageAdmins();
         if (page === 'settings') settings();
+        if (page === 'reports') reports();
+        if (page === 'report-issue') reportIssue();
 
         if (page === 'dashboard') {
             setupDashboard();
@@ -1221,6 +1230,41 @@
         await renderAdmins();
     }
 
+    async function reports() {
+        const body = $('#reports-body');
+        if (!body) return;
+
+        const render = async () => {
+            body.innerHTML = '<tr><td colspan="4" class="empty-state">Loading issue reports...</td></tr>';
+
+            try {
+                const reports = await loadIssueReports();
+                $('#report-count').textContent = reports.length;
+
+                body.innerHTML = reports.length
+                    ? reports.map(item => `
+                        <tr>
+                            <td>#${item.issueId}</td>
+                            <td>
+                                <strong>${escapeHtml(item.issueType)}</strong>
+                                <small>${escapeHtml(new Date(item.reportedAt.replace(' ', 'T')).toLocaleString())}</small>
+                            </td>
+                            <td>
+                                ${escapeHtml(item.reporter.name)}
+                                <small>${escapeHtml(item.reporter.email)}</small>
+                            </td>
+                            <td><pre>${escapeHtml(item.details)}</pre></td>
+                        </tr>
+                    `).join('')
+                    : '<tr><td colspan="4" class="empty-state">No issue reports have been submitted.</td></tr>';
+            } catch (error) {
+                body.innerHTML = `<tr><td colspan="4" class="empty-state">${escapeHtml(error.message)}</td></tr>`;
+            }
+        };
+
+        await render();
+    }
+
     function settings() {
         const nameEl = $('#profile-name');
         const roleEl = $('#profile-role');
@@ -1228,6 +1272,54 @@
         if (roleEl) roleEl.textContent = currentUser?.role || '';
         // Profile is read-only for now — no phone/email/notification fields
         // exist in the current users table.
+    }
+
+    // Handler for the "Report Issue" page. Attach submit/cancel handlers
+    // using the app's apiRequest, toast and navigate functions (all in-scope).
+    function reportIssue() {
+        const form = $('#report-issue-form');
+        if (!form) return;
+
+        const cancel = $('#cancel-report');
+        cancel?.addEventListener('click', () => navigate('dashboard'));
+
+        form.onsubmit = async event => {
+            event.preventDefault();
+            if (!form.reportValidity()) return;
+
+            const data = new FormData(form);
+            const payload = {
+                issue_type: (data.get('issue_type') || '').toString(),
+                severity: (data.get('severity') || '').toString(),
+                affected_feature: (data.get('affected_feature') || '').toString(),
+                steps: (data.get('steps') || '').toString(),
+                additional: (data.get('additional') || '').toString()
+            };
+
+            const submitButton = form.querySelector('[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+
+            try {
+                // apiRequest sends cookies (session) so backend will attach the reporter identity
+                const result = await apiRequest('issues/create.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                toast(result.message || 'Report submitted.');
+                navigate('dashboard');
+            } catch (error) {
+                toast(error.message || 'Unable to submit report.');
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
+        };
+
+        if (!isLoggedIn()) {
+            // Encourage login since the reporter identity is taken from session
+            toast('Please log in so your email is attached to the report for follow-up.');
+        }
     }
 
     function locate(done, options = {}) {
@@ -1290,6 +1382,49 @@
     });
     $('#gps-button')?.addEventListener('click', () => locate());
     $('#login-trigger')?.addEventListener('click', showLoginScreen);
+    // Show the report dialog when the topbar button is clicked. If the dialog
+    // is not available, fall back to the full report page.
+    $('.issue-btn')?.addEventListener('click', () => {
+        const dlg = $('#issue-dialog');
+        if (dlg && typeof dlg.showModal === 'function') {
+            dlg.showModal();
+        } else {
+            navigate('report-issue');
+        }
+    });
+
+    // Wire the issue dialog form to the issues API.
+    const issueForm = $('#issue-form');
+    if (issueForm) {
+        $('#cancel-issue')?.addEventListener('click', () => $('#issue-dialog')?.close());
+        issueForm.onsubmit = async event => {
+            event.preventDefault();
+            if (!issueForm.reportValidity()) return;
+            const type = $('#issue-type')?.value || '';
+            const details = $('#issue-details')?.value || '';
+            const submitButton = issueForm.querySelector('[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+
+            if (!isLoggedIn()) {
+                // Allow anonymous submissions, but encourage login so the superadmin can follow up.
+                toast('You may submit anonymously; log in if you want us to contact you about follow-up.');
+            }
+            try {
+                await apiRequest('issues/create.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ issue_type: type, severity: 'Not specified', affected_feature: '', steps: '', additional: details })
+                });
+                toast('Report submitted.');
+                $('#issue-dialog')?.close();
+            } catch (err) {
+                toast(err.message || 'Could not submit report.');
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
+        };
+    }
+
     $('#cancel-login')?.addEventListener('click', () => $('#login-dialog').close());
 
     setupThemeToggle();
