@@ -11,14 +11,14 @@ CREATE TABLE IF NOT EXISTS issue_reports (
     issue_type VARCHAR(50) NOT NULL,
     details VARCHAR(500) NOT NULL,
     reported_by INT UNSIGNED NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_issue_reports_user (reported_by),
-    INDEX idx_issue_reports_created_at (created_at),
+    INDEX idx_issue_reports_reported_at (reported_at),
 
     CONSTRAINT fk_issue_reports_user
         FOREIGN KEY (reported_by)
-        REFERENCES users(user_id)
+        REFERENCES users(id)
         ON UPDATE CASCADE
         ON DELETE RESTRICT
 ) ENGINE=InnoDB;
