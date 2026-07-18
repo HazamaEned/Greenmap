@@ -1,0 +1,52 @@
+<section class="section-card report-issue-view">
+    <h2>Report an Issue</h2>
+
+    <p>Please provide as much detail as you can. Your logged-in email will be used as the reporter identity. If you're not logged in, please log in so we can contact you for follow up.</p>
+
+    <form id="report-issue-form">
+        <label>
+            Issue type
+            <select name="issue_type" required>
+                <option value="">Choose one</option>
+                <option value="Incorrect tree information">Incorrect tree information</option>
+                <option value="Map or GPS problem">Map or GPS problem</option>
+                <option value="Broken feature">Broken feature</option>
+                <option value="Data privacy concern">Data privacy concern</option>
+                <option value="Other">Other</option>
+            </select>
+        </label>
+
+        <label>
+            Severity
+            <select name="severity" required>
+                <option value="">Select severity</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+            </select>
+        </label>
+
+        <label>
+            Affected feature or page (optional)
+            <input name="affected_feature" type="text" placeholder="e.g. Add Tree form, Map view">
+        </label>
+
+        <label>
+            Steps to reproduce (if applicable)
+            <textarea name="steps" rows="4" maxlength="800" placeholder="Describe how to reproduce the issue"></textarea>
+        </label>
+
+        <label>
+            Additional details / context
+            <textarea name="additional" rows="6" maxlength="1200" placeholder="Any other useful information, screenshots (attach via email reply), links, or suggestions"></textarea>
+        </label>
+
+        <div class="dialog-actions">
+            <button type="button" id="cancel-report">Cancel</button>
+            <button type="submit">Send Report</button>
+        </div>
+
+        <small>Reports are saved to the GreenMap database and an email is sent to the superadmin for follow-up.</small>
+    </form>
+</section>

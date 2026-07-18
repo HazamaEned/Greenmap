@@ -12,29 +12,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
+// Only superadmins can view the list of admins.
 requireRole(['superadmin']);
 
 try {
+    // Ensure the 'status' column is selected.
     $result = $conn->query(
-        "SELECT id, name, email, role, created_at
-         FROM users
-         WHERE role IN ('admin', 'superadmin')
-         ORDER BY FIELD(role, 'superadmin', 'admin'), name ASC"
+        'SELECT id, name, email, role, status FROM users
+         WHERE role IN ("admin", "superadmin")
+         ORDER BY name ASC'
     );
 
-    $admins = [];
-    while ($row = $result->fetch_assoc()) {
-        $admins[] = [
-            'id' => (int) $row['id'],
-            'name' => $row['name'],
-            'email' => $row['email'],
-            'role' => $row['role'],
-            'createdAt' => $row['created_at'],
-        ];
-    }
+    $admins = $result->fetch_all(MYSQLI_ASSOC);
 
     echo json_encode(['success' => true, 'admins' => $admins]);
-} catch (mysqli_sql_exception $exception) {
+} catch (mysqli_sql_exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Unable to load administrator accounts.']);
+    echo json_encode(['success' => false, 'message' => 'Database error while fetching admin accounts.']);
 }

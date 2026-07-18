@@ -85,6 +85,14 @@ try {
     exit;
 }
 
+// If the table does not yet have status/archived columns (older installs), ensure defaults exist
+try {
+    $conn->query("ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'Unread'");
+    $conn->query("ALTER TABLE issue_reports ADD COLUMN IF NOT EXISTS archived TINYINT(1) NOT NULL DEFAULT 0");
+} catch (mysqli_sql_exception $e) {
+    // Non-fatal — the columns are an enhancement for the admin UI. Proceed without blocking the user.
+}
+
 // Send email to superadmin
 $to = 'juson_christianbenedict@plpasig.edu.ph';
 $subject = "[GreenMap] New issue report (#{$issueId}) - " . $issueType;

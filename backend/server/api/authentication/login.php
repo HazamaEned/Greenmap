@@ -31,7 +31,14 @@ if ($email === '' || $password === '' || !filter_var($email, FILTER_VALIDATE_EMA
 
 try {
     $statement = $conn->prepare(
-        'SELECT id, name, password, role FROM users WHERE email = ? LIMIT 1'
+        'SELECT id, name, password, role,
+            (SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "users" AND COLUMN_NAME = "status"
+            ) AS status_exists,
+            status
+         FROM users
+         WHERE email = ?
+         LIMIT 1'
     );
     $statement->bind_param('s', $email);
     $statement->execute();
@@ -50,6 +57,12 @@ try {
     if (!in_array($user['role'], ['admin', 'superadmin'], true)) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Admin accounts only.']);
+        exit;
+    }
+
+    if (($user['status_exists'] ?? false) && ($user['status'] ?? 'active') === 'inactive') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'This account is inactive.']);
         exit;
     }
 

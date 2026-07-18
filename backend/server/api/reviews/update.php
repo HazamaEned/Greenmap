@@ -66,6 +66,13 @@ try {
     $update->bind_param('sii', $decision, $reviewerId, $submissionId);
     $update->execute();
     $conn->commit();
+    
+    // Post-approval action: If approved, the tree becomes visible on the main map.
+    // This logic is currently implicit. If you add a dedicated 'trees' table
+    // separate from submissions, this is where you would copy the approved
+    // data into that main table. For now, the view used by 'trees/list.php'
+    // handles this filtering.
+
 
     echo json_encode([
         'success' => true,

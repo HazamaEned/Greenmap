@@ -1,0 +1,44 @@
+<section class="view-stack compact-view">
+    <header class="panel-header">
+        <h2>My Account</h2>
+    </header>
+
+    <section class="section-card">
+        <h3>Security</h3>
+        <p>Change the password you use to log in to your GreenMap administrator account.</p>
+
+        <form class="form-grid" id="change-password-form">
+            <label class="field">
+                Current Password
+                <span class="password-field">
+                    <input name="current_password" type="password" required autocomplete="current-password">
+                    <button type="button" class="password-reveal" aria-label="Show password">
+                        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </span>
+            </label>
+
+            <label class="field">
+                New Password
+                <span class="password-field">
+                    <input name="new_password" type="password" minlength="8" required autocomplete="new-password">
+                    <button type="button" class="password-reveal" aria-label="Show password">
+                        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </span>
+            </label>
+
+            <label class="field">
+                Confirm New Password
+                <span class="password-field">
+                    <input name="confirm_password" type="password" minlength="8" required autocomplete="new-password">
+                    <button type="button" class="password-reveal" aria-label="Show password">
+                        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </span>
+            </label>
+
+            <button type="submit" class="primary-action">Update Password</button>
+        </form>
+    </section>
+</section>

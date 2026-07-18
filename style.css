@@ -209,6 +209,8 @@ button {
 }
 
 .topbar {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -217,6 +219,22 @@ button {
     padding: 0 24px;
     background: var(--surface);
     border-bottom: 1px solid var(--line);
+}
+
+.topbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, #ffffffde 0%, #ffffffb8 48%, #ffffff78 100%),
+        url("uploads/trees/cc55483bb71fe2e035465ff4f087d28a.jpg") center 35% / cover no-repeat;
+    opacity: .42;
+    pointer-events: none;
+}
+
+.topbar > * {
+    position: relative;
+    z-index: 1;
 }
 
 .page-heading span {
@@ -247,6 +265,22 @@ button {
     white-space: nowrap;
 }
 
+#login-trigger,
+#logout-button {
+    border: 0;
+    border-radius: 8px;
+    background: var(--green);
+    color: #ffffff;
+    min-height: 38px;
+    padding: 0 14px;
+    font-weight: 700;
+}
+
+#login-trigger:hover,
+#logout-button:hover {
+    background: #1d6040;
+}
+
 .issue-btn,
 .dialog-actions button[type="submit"] {
     border: 0;
@@ -256,6 +290,23 @@ button {
     min-height: 38px;
     padding: 0 14px;
     font-weight: 700;
+}
+
+.topbar-actions .issue-btn {
+    border: 1px solid #9fa8a1;
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow: none;
+    color: var(--ink);
+    min-height: 38px;
+    padding: 0 14px;
+    font-weight: 400;
+    transition: background 160ms ease, border-color 160ms ease;
+}
+
+.topbar-actions .issue-btn:hover {
+    background: #f4f6f1;
+    border-color: var(--green);
 }
 
 .issue-btn:hover,
@@ -627,6 +678,13 @@ html[data-theme="dark"] .menu li.active {
 
 html[data-theme="dark"] .map-area {
     background: #18231d;
+}
+
+html[data-theme="dark"] .topbar::before {
+    background:
+        linear-gradient(90deg, #141d18e8 0%, #141d18c7 52%, #141d188a 100%),
+        url("uploads/trees/cc55483bb71fe2e035465ff4f087d28a.jpg") center 35% / cover no-repeat;
+    opacity: .5;
 }
 
 html[data-theme="dark"] .map-legend,

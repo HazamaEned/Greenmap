@@ -1,0 +1,38 @@
+<section class="view-stack">
+    <header class="panel-header">
+        <a href="#" data-action="back-to-admins" class="back-link">&larr; Back to Admins</a>
+        <h2 id="edit-admin-title">Edit Administrator</h2>
+    </header>
+
+    <section class="section-card">
+        <h3>Account Status</h3>
+        <div class="form-grid" id="edit-admin-form">
+            <label class="switch field-inline">
+                <input name="status" type="checkbox">
+                <span class="slider"></span>
+                <span id="status-label">Account is Active</span>
+            </label>
+            <small>An inactive account cannot be used to log in.</small>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3>Security</h3>
+
+        <form class="form-grid" id="password-reset-form">
+            <p>Set a new password for this administrator. They will be required to use this new password the next time they log in.</p>
+            <label class="field">
+                New Password
+                <input name="new_password" type="password" minlength="8" required autocomplete="new-password">
+            </label>
+
+            <label class="field">
+                Confirm New Password
+                <input name="confirm_password" type="password" minlength="8" required autocomplete="new-password">
+            </label>
+
+            <button type="submit" class="secondary-action">Update Password</button>
+            <small id="password-reset-notice"></small>
+        </form>
+    </section>
+</section>

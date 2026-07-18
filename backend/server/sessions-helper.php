@@ -13,8 +13,8 @@ function startSecureSession(): void
         'lifetime' => 0,
         'path' => '/',
         'httponly' => true,
-        'samesite' => 'Lax'
-        // 'secure' => true, // enable once served over HTTPS
+        'samesite' => 'Lax',
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
     ]);
 
     session_start();

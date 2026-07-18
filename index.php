@@ -13,10 +13,52 @@
     </script>
     <link rel="icon" type="image/png" href="assets/greenmap-icon-64.png">
     <link rel="apple-touch-icon" href="assets/greenmap-icon-192.png">
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=14">
     <link rel="stylesheet" href="pages/app-styles.css?v=7">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        /* Floating label styles for login form */
+        .field {
+            position: relative;
+        }
+        .field .field-label {
+            position: absolute;
+            left: 12px;
+            top: 14px;
+            color: var(--muted-more);
+            pointer-events: none;
+            transition: all 0.2s ease-out;
+            background-color: var(--surface);
+            padding: 0 4px;
+        }
+        .field.has-content .field-label,
+        .field input:focus + .field-label {
+            top: -10px;
+            left: 8px;
+            font-size: 0.8rem;
+            color: var(--primary);
+        }
+
+        /* Autofill detection: a simple animation on autofilled inputs */
+        @keyframes on-autofill-start { from {} to {} }
+
+        /* The browser applies its own styles, but we can still trigger our animation */
+        input:-webkit-autofill {
+            animation-name: on-autofill-start;
+            animation-fill-mode: both;
+        }
+
+        /* Style for destructive action buttons in dialogs */
+        .danger-action {
+            background-color: var(--danger, #d9534f);
+            color: white;
+        }
+        .danger-action:hover, .danger-action:focus {
+            background-color: var(--danger-hover, #c9302c);
+            border-color: transparent;
+        }
+    </style>
 </head>
 <body>
     <div class="app-shell">
@@ -37,9 +79,10 @@
                     <li data-page="dashboard" class="active">Dashboard</li>
                     <li data-page="map">Map</li>
                     <li data-page="contributions" class="hidden" data-admin-only>My Contributions</li>
+                    <li data-page="account" class="hidden" data-admin-only>Account</li>
                     <li data-page="review-contributions" class="hidden" data-superadmin-only>Review Contributions</li>
                     <li data-page="manage-admins" class="hidden" data-superadmin-only>Manage Admins</li>
-                    <li data-page="settings" class="hidden" data-admin-only>Settings</li>
+                    <li data-page="reports" class="hidden" data-superadmin-only>Reports</li>
                 </ul>
             </nav>
 
@@ -124,6 +167,16 @@
         </div>
     </dialog>
 
+    <dialog id="submission-success-dialog">
+        <div class="dialog-view" style="text-align: center; gap: 20px;">
+            <h2>Entry Submitted</h2>
+            <p style="color: var(--muted); margin: -10px 0 0;">Wait for an admin to verify.</p>
+            <div class="dialog-actions" style="justify-content: center;">
+                <button type="button" id="close-submission-success" class="primary-action">OK</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="issue-dialog">
         <form id="issue-form">
             <h2>Report Issue</h2>
@@ -150,21 +203,39 @@
     </dialog>
 
     <dialog id="login-dialog">       
-        <form id="login-form">
-            <h2>Log in</h2>
-            <label>
-                Email
-                <input type="email" name="email" required>
+        <form id="login-form" class="dialog-view">
+            <div class="brand" style="justify-content: center; margin-bottom: 20px; text-align: center;">
+                <span class="brand-mark" style="margin-right: 12px;">
+                    <img src="assets/greenmap-icon.png" alt="GreenMap logo">
+                </span>
+                <div>
+                    <h1 style="font-size: 1.75rem;">GreenMap</h1>
+                </div>
+            </div>
+            <label class="field">
+                <input type="email" name="email" required autocomplete="email" placeholder=" ">
+                <span class="field-label">Email</span>
             </label>
-            <label>
-                Password
-                <input type="password" name="password" required>
+            <label class="field">
+                <input type="password" name="password" required autocomplete="current-password" placeholder=" ">
+                <span class="field-label">Password</span>
             </label>
             <div class="dialog-actions">
                 <button type="button" id="cancel-login">Cancel</button>
-                <button type="submit">Log in</button>
+                <button type="submit" class="primary-action">Log in</button>
             </div>
         </form>
+    </dialog>
+
+    <dialog id="confirm-dialog">
+        <div class="dialog-view">
+            <h2 id="confirm-dialog-title">Confirm Action</h2>
+            <p id="confirm-dialog-message" style="margin-top: 0; max-width: 400px;"></p>
+            <div class="dialog-actions">
+                <button type="button" id="confirm-dialog-cancel">Cancel</button>
+                <button type="button" id="confirm-dialog-confirm" class="danger-action">Confirm</button>
+            </div>
+        </div>
     </dialog>
 
     <script>
@@ -172,6 +243,32 @@
             pageExtension: 'html',
             apiBaseUrl: 'backend/server/api/'
         };
+    </script>
+    <script>
+        // Handle dynamic placeholders for login form
+        // This robustly handles browser autofill behavior for floating labels.
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('login-form');
+            if (!loginForm) return;
+
+            const inputs = loginForm.querySelectorAll('input[name="email"], input[name="password"]');
+
+            const checkValue = (field) => {
+                const input = field.querySelector('input');
+                field.classList.toggle('has-content', input.value.length > 0);
+            };
+
+            loginForm.querySelectorAll('.field').forEach(field => {
+                const input = field.querySelector('input');
+                checkValue(field); // Check on load
+                input.addEventListener('input', () => checkValue(field));
+                input.addEventListener('animationstart', (e) => {
+                    if (e.animationName === 'on-autofill-start') {
+                        checkValue(input);
+                    }
+                });
+            });
+        });
     </script>
     <script src="app.js?v=18"></script>
 </body>

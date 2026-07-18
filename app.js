@@ -13,8 +13,10 @@
         contributions: 'My Contributions',
         'review-contributions': 'Review Contributions',
         'manage-admins': 'Manage Admins',
-        settings: 'Settings',
-        'report-issue': 'Report Issue'
+        'edit-admin': 'Edit Admin',
+        'account': 'My Account',
+        'report-issue': 'Report Issue',
+        'report-details': 'Report Details'
     };
     pageTitles['reports'] = 'Issue Reports'; // Add new page title
     const PASIG_BARANGAYS = Object.freeze([
@@ -63,6 +65,7 @@
     let locationSource = 'Not requested';
     let selectedTreePhotoUrl = '';
     let dashboardBarangayFilter = '';
+    let currentPageState = {};
 
     // Boundary data is loaded before the dashboard so filters work even if
     // the user has not opened the map yet.
@@ -102,6 +105,61 @@
         element.classList.remove('hidden');
         clearTimeout(toast.timer);
         toast.timer = setTimeout(() => element.classList.add('hidden'), 3000);
+    }
+
+    function showMapNotification(title, message) {
+        if (!map) return;
+
+        // Remove any existing notification
+        const existing = $('.map-notification');
+        if (existing) {
+            clearTimeout(existing.timer);
+            existing.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = 'map-notification';
+        notification.innerHTML = `
+            <div class="map-notification-content">
+                <h2>${escapeHtml(title)}</h2>
+                <p>${escapeHtml(message)}</p>
+            </div>
+            <button class="map-notification-close" aria-label="Close notification">&times;</button>
+        `;
+
+        const close = () => {
+            clearTimeout(notification.timer);
+            notification.remove();
+        };
+
+        notification.querySelector('.map-notification-close').onclick = close;
+        notification.timer = setTimeout(close, 2500);
+
+        map.getContainer().appendChild(notification);
+    }
+
+    /**
+     * Shows a custom, styled confirmation dialog.
+     * @param {string} message The confirmation message to display.
+     * @param {string} [title='Confirm Action'] The title for the dialog.
+     * @returns {Promise<boolean>} A promise that resolves to true if confirmed, false otherwise.
+     */
+    function showConfirmationDialog(message, title = 'Confirm Action') {
+        const dialog = $('#confirm-dialog');
+        if (!dialog) return Promise.resolve(confirm(message)); // Fallback to native confirm
+
+        $('#confirm-dialog-title', dialog).textContent = title;
+        $('#confirm-dialog-message', dialog).textContent = message;
+
+        dialog.showModal();
+
+        return new Promise(resolve => {
+            const cancelBtn = $('#confirm-dialog-cancel', dialog);
+            const confirmBtn = $('#confirm-dialog-confirm', dialog);
+
+            cancelBtn.onclick = () => { dialog.close(); resolve(false); };
+            confirmBtn.onclick = () => { dialog.close(); resolve(true); };
+        });
     }
 
     function applyTheme(theme, persist = false) {
@@ -181,6 +239,18 @@
         $('#login-dialog')?.close();
     }
 
+    function setupFormFieldHandlers(form) {
+        $$('input, textarea', form).forEach(input => {
+            const field = input.closest('.form-field');
+            if (!field) return;
+
+            const update = () => field.classList.toggle('has-value', input.value !== '');
+
+            input.addEventListener('input', update);
+            update(); // Initial check in case of autofill
+        });
+    }
+
     function setupLoginForm() {
         const form = $('#login-form');
         if (!form) return; // see HTML note below
@@ -209,6 +279,8 @@
                 submitButton.disabled = false;
             }
         };
+
+        setupFormFieldHandlers(form);
     }
 
     function setupLogoutButton() {
@@ -219,14 +291,9 @@
             try {
                 await logout();
                 databaseContributions = [];
-                applyRoleVisibility(); // hides admin-only nav items again
-                welcome(); // now shows "Welcome, Guest"
-                const activePage = $('.menu li.active')?.dataset.page;
-                if (['contributions', 'review-contributions', 'manage-admins', 'settings'].includes(activePage)) {
-                    await navigate('dashboard');
-                } else if (activePage === 'dashboard') {
-                    setupDashboard();
-                }
+                applyRoleVisibility(); // Hides admin-only nav items again.
+                welcome(); // Now shows "Welcome, Guest".
+                await navigate('dashboard');
                 toast('Logged out.');
             } catch (error) {
                 toast(error.message);
@@ -561,6 +628,13 @@
                 toast('Your location is centered. No saved trees are nearby yet.');
             }
         }
+
+        const noResultsOverlay = $('#map-no-results');
+        if (noResultsOverlay) {
+            if (noResultsOverlay.parentNode === map.getContainer()) {
+                map.getContainer().removeChild(noResultsOverlay);
+            }
+        }
     }
 
     function requestStartupLocation() {
@@ -571,14 +645,18 @@
 
     function showTree(tree, location) {
         const image = $('#tree-img');
-        selectedTreePhotoUrl = tree.photo || 'trees/mango.jpg';
-        image.onerror = () => {
-            image.onerror = null;
-            image.src = 'trees/mango.jpg';
-            selectedTreePhotoUrl = 'trees/mango.jpg';
-        };
-        image.src = selectedTreePhotoUrl;
-        image.alt = `${tree.species.commonName} tree`;
+        const trigger = $('#tree-photo-trigger');
+        selectedTreePhotoUrl = tree.photo || '';
+
+        if (selectedTreePhotoUrl) {
+            image.src = selectedTreePhotoUrl;
+            image.alt = `${tree.species.commonName} tree`;
+            trigger.style.display = '';
+        } else {
+            image.src = '';
+            image.alt = 'No photo available';
+            trigger.style.display = 'none';
+        }
         $('#tree-name').textContent = tree.species.commonName;
         $('#tree-species').textContent = `Scientific name: ${tree.species.scientificName}`;
         $('#tree-planted').textContent = tree.age !== null ? `Age: ${tree.age} years` : 'Age: Unknown';
@@ -608,13 +686,12 @@
         const dialog = $('#photo-viewer-dialog');
         if (!source || !fullscreenImage || !dialog) return;
 
-        fullscreenImage.onerror = () => {
-            fullscreenImage.onerror = null;
-            fullscreenImage.src = 'trees/mango.jpg';
-        };
+        fullscreenImage.onerror = null;
         fullscreenImage.src = selectedTreePhotoUrl || source.src;
         fullscreenImage.alt = source.alt || 'Tree photo';
-        dialog.showModal();
+        if (fullscreenImage.src) {
+            dialog.showModal();
+        }
     }
 
     function closeTreePhoto() {
@@ -631,14 +708,14 @@
         const currentStatus = statusFilter.value;
         const currentLocation = locationFilter.value;
 
-        const statuses = [...new Set(trees().map(tree => tree.status).filter(Boolean))].sort();
-        const locations = [...new Set([...treeMarkers.values()].map(entry => entry.location))].sort();
+        const statuses = ['Healthy', 'Diseased', 'Dead', 'Removed'];
+        const locations = PASIG_BARANGAYS;
 
         statusFilter.innerHTML = '<option value="">All Status</option>'
             + statuses.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
 
         locationFilter.innerHTML = '<option value="">All Barangays</option>'
-            + locations.map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
+            + [...locations].sort().map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
 
         if ([...statusFilter.options].some(option => option.value === currentStatus)) {
             statusFilter.value = currentStatus;
@@ -658,6 +735,7 @@
         const status = statusFilter.value;
         const location = locationFilter.value;
         const hasActiveFilter = Boolean(query || status || location);
+        let matchCount = 0;
 
         treeMarkers.forEach(({ marker, tree, location: treeLocation }) => {
             const haystack = `${tree.species.commonName} ${tree.species.scientificName}`.toLowerCase();
@@ -666,9 +744,53 @@
             const matchesLocation = !location || treeLocation === location;
             const matches = matchesQuery && matchesStatus && matchesLocation;
 
+            if (matches) {
+                matchCount++;
+            }
+
             marker.setOpacity(!hasActiveFilter || matches ? 1 : 0.25);
             marker.setZIndexOffset(matches && hasActiveFilter ? 1000 : 0);
         });
+
+        const noResultsOverlay = $('#map-no-results') || document.createElement('div');
+        noResultsOverlay.id = 'map-no-results';
+        noResultsOverlay.className = 'map-no-results-overlay';
+        noResultsOverlay.innerHTML = '<strong>No trees match your filter</strong><small>Try adjusting your search criteria.</small>';
+
+        // Clear any existing removal timer
+        if (noResultsOverlay.timer) {
+            clearTimeout(noResultsOverlay.timer);
+            noResultsOverlay.timer = null;
+        }
+
+        if (hasActiveFilter && matchCount === 0) {
+            if (!noResultsOverlay.parentNode) {
+                map?.getContainer().appendChild(noResultsOverlay);
+            }
+            // Set a timer to remove the overlay
+            noResultsOverlay.timer = setTimeout(() => {
+                noResultsOverlay.parentNode?.removeChild(noResultsOverlay);
+            }, 2500);
+        } else if (noResultsOverlay.parentNode === map?.getContainer()) {
+            map.getContainer().removeChild(noResultsOverlay);
+        }
+
+        // If a barangay was selected and there are results, pan and zoom to it.
+        if (location && map) {
+            const barangayFeature = boundaryData?.barangays?.features.find(
+                feature => (feature.properties?.name || '') === location
+            );
+
+            if (barangayFeature) {
+                // Create a temporary GeoJSON layer to calculate its bounds
+                const tempLayer = L.geoJSON(barangayFeature);
+                map.fitBounds(tempLayer.getBounds(), { padding: [40, 40] });
+            }
+        } else if (map && !query && !status) {
+            // If all filters are cleared, reset the view to the whole city
+            const cityBounds = boundaryLayer?.getBounds();
+            if (cityBounds?.isValid()) map.fitBounds(cityBounds, { padding: [35, 35] });
+        }
     }
 
     function setupMapFilters() {
@@ -679,6 +801,24 @@
 
         populateMapFilters();
 
+        const searchContainer = $('.map-search');
+        if (searchContainer && !searchContainer.querySelector('.clear-filters-btn')) {
+            const clearButton = document.createElement('button');
+            clearButton.type = 'button';
+            clearButton.className = 'map-filter-action clear-filters-btn';
+            clearButton.title = 'Clear all filters';
+            clearButton.innerHTML = '&#x2715;'; // A simple 'X' icon
+
+            clearButton.onclick = () => {
+                searchInput.value = '';
+                statusFilter.value = '';
+                locationFilter.value = '';
+                applyMapFilters();
+            };
+
+            searchContainer.appendChild(clearButton);
+        }
+
         searchInput.oninput = applyMapFilters;
         statusFilter.onchange = applyMapFilters;
         locationFilter.onchange = applyMapFilters;
@@ -686,13 +826,14 @@
 
     // --- Navigation ------------------------------------------------------------
 
-    async function navigate(page) {
-        if (['contributions', 'settings'].includes(page) && !isAdmin()) {
+    async function navigate(page, state = {}) {
+        if (page === 'contributions' && !isAdmin()) {
             toast('Admin login is required to open that page.');
             return;
         }
 
-        if (['review-contributions', 'manage-admins', 'reports'].includes(page) && !isSuperadmin()) {
+        // The edit-admin page is also superadmin-only.
+        if (['review-contributions', 'manage-admins', 'reports', 'edit-admin'].includes(page) && !isSuperadmin()) {
             toast('Superadmin access is required to open that page.');
             return;
         }
@@ -703,34 +844,44 @@
             return;
         }
 
+        currentPageState = state;
+
         $$('.menu li').forEach(item => {
             item.classList.toggle('active', item.dataset.page === page);
         });
         $('.menu').classList.remove('open');
         $('#page-title').textContent = pageTitles[page] || 'GreenMap';
+        const panel = $('#panel');
+
+        // Fade out current content
+        panel.classList.add('loading');
+        $('#map-area').classList.add('loading');
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         if (page === 'map') {
             $('#map-area').hidden = false;
-            $('#panel').classList.add('hidden');
+            panel.classList.add('hidden');
             initMap();
             setTimeout(() => map?.invalidateSize(), 50);
+            $('#map-area').classList.remove('loading'); // Fade in map
             return;
         }
 
         $('#map-area').hidden = true;
-        const panel = $('#panel');
         panel.classList.remove('hidden');
         panel.innerHTML = '<p>Loading...</p>';
 
         try {
             const response = await fetch(`pages/${page}.${pageExtension}`, { cache: 'no-store' });
             if (!response.ok) throw new Error(`Could not load ${page}`);
-
             const documentFragment = new DOMParser().parseFromString(await response.text(), 'text/html');
             panel.innerHTML = documentFragment.body.innerHTML;
             setup(page);
         } catch {
             panel.innerHTML = '<h2>Page unavailable</h2><p>Run the project through XAMPP/Apache, for example: http://localhost/Greenmap/index.php</p>';
+        } finally {
+            // Fade in new content
+            panel.classList.remove('loading');
         }
     }
 
@@ -739,8 +890,10 @@
         if (page === 'contributions') contributions();
         if (page === 'review-contributions') reviewContributions();
         if (page === 'manage-admins') manageAdmins();
-        if (page === 'settings') settings();
         if (page === 'reports') reports();
+        if (page === 'edit-admin') editAdmin();
+        if (page === 'account') accountPage();
+        if (page === 'report-details') reportDetails();
         if (page === 'report-issue') reportIssue();
 
         if (page === 'dashboard') {
@@ -985,12 +1138,12 @@
                     photo: data.get('tree_photo')?.size ? data.get('tree_photo') : null,
                 });
 
+                // Navigate to the map page first.
+                await navigate('map');
+
+                // Now show the success dialog.
                 await loadMyContributions();
-                if (result.approvalStatus === 'Approved') {
-                    await loadDatabaseTrees();
-                }
-                toast(result.message);
-                await navigate('contributions');
+                showMapNotification('Entry Submitted', 'Wait for an admin to verify.');
             } catch (error) {
                 toast(error.message);
             } finally {
@@ -1191,10 +1344,14 @@
                                 <strong>${escapeHtml(admin.name)}</strong>
                                 <small>${escapeHtml(admin.email)}</small>
                             </div>
-                            <span class="role-badge role-${admin.role}">${escapeHtml(admin.role)}</span>
+                            <div>
+                                <span class="role-badge role-${admin.role}">${escapeHtml(admin.role)}</span>
+                                <button class="edit-admin-btn" data-admin-id="${admin.id}">Edit</button>
+                            </div>
                         </article>
                     `).join('')
                     : '<div class="dashboard-empty compact-empty">No administrator accounts found.</div>';
+                $$('.edit-admin-btn', list).forEach(btn => btn.onclick = () => navigate('edit-admin', { adminId: Number(btn.dataset.adminId) }));
             } catch (error) {
                 list.innerHTML = `<div class="dashboard-empty compact-empty">${escapeHtml(error.message)}</div>`;
             }
@@ -1234,44 +1391,288 @@
         const body = $('#reports-body');
         if (!body) return;
 
-        const render = async () => {
-            body.innerHTML = '<tr><td colspan="4" class="empty-state">Loading issue reports...</td></tr>';
+        // Set up the table headers dynamically
+        const table = body.closest('.table');
+        if (table && !table.querySelector('thead')) {
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th style="width: 60px;">ID</th>
+                    <th>Issue</th>
+                    <th>Reporter</th>
+                    <th>Email</th>
+                    <th>Details</th>
+                    <th style="width: 120px;">Status</th>
+                </tr>
+            `;
+            table.prepend(thead);
+        }
+
+        const render = async (filterValue = '') => {
+            body.innerHTML = `<tr><td colspan="6" class="empty-state">Loading issue reports...</td></tr>`;
 
             try {
                 const reports = await loadIssueReports();
                 $('#report-count').textContent = reports.length;
 
                 body.innerHTML = reports.length
-                    ? reports.map(item => `
-                        <tr>
-                            <td>#${item.issueId}</td>
-                            <td>
-                                <strong>${escapeHtml(item.issueType)}</strong>
-                                <small>${escapeHtml(new Date(item.reportedAt.replace(' ', 'T')).toLocaleString())}</small>
-                            </td>
-                            <td>
-                                ${escapeHtml(item.reporter.name)}
-                                <small>${escapeHtml(item.reporter.email)}</small>
-                            </td>
-                            <td><pre>${escapeHtml(item.details)}</pre></td>
-                        </tr>
-                    `).join('')
-                    : '<tr><td colspan="4" class="empty-state">No issue reports have been submitted.</td></tr>';
+                    ? reports
+                        .filter(item => !filterValue || (item.status || 'Unread') === filterValue)
+                        .map(item => {
+                        const status = item.status || 'Unread';
+                        const reportedAt = item.reportedAt ? new Date(item.reportedAt.replace(' ', 'T')).toLocaleString() : 'Unknown';
+                        const reporterName = item.reporter?.name || 'Anonymous';
+                        const reporterEmail = item.reporter?.email || '';
+
+                        return `
+                            <tr data-issue-id="${item.issueId}" class="report-row ${status.toLowerCase()}" style="cursor: pointer;">
+                                <td>#${item.issueId}</td>
+                                <td>
+                                    <strong>${escapeHtml(item.issueType)}</strong>
+                                    <small>${escapeHtml(reportedAt)}</small>
+                                </td>
+                                <td>${escapeHtml(reporterName)}</td>
+                                <td>${reporterEmail ? escapeHtml(reporterEmail) : '<small>Not provided</small>'}</td>
+                                <td>
+                                    <div class="details-cell">${escapeHtml(item.details)}</div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-${status.toLowerCase()}">${escapeHtml(status)}</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')
+                    : `<tr><td colspan="6" class="empty-state">No issue reports have been submitted.</td></tr>`;
+
+                if (body.innerHTML === '') {
+                    body.innerHTML = `<tr><td colspan="6" class="empty-state">No reports match the filter.</td></tr>`;
+                }
             } catch (error) {
-                body.innerHTML = `<tr><td colspan="4" class="empty-state">${escapeHtml(error.message)}</td></tr>`;
+                body.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(error.message)}</td></tr>`;
             }
         };
 
-        await render();
+        const filter = $('#report-status-filter');
+        if (filter) filter.onchange = () => render(filter.value);
+        await render(filter?.value);
+
+        // Attach event delegation handlers for action buttons and report view buttons
+        body.addEventListener('click', async (event) => {
+            const row = event.target.closest('.report-row');
+            if (row) {
+                navigate('report-details', { issueId: Number(row.dataset.issueId) });
+            }
+        });
+
+        // Dialog action buttons
+        $('#close-report-dialog')?.addEventListener('click', () => $('#report-dialog')?.close());
+        $('#mark-read')?.addEventListener('click', async () => {
+            const id = Number($('#report-dialog')?.dataset.currentIssueId);
+            if (!id) return;
+            try { await apiRequest('issues/update.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ issue_id: id, action: 'mark_read' }) }); toast('Marked read.'); $('#report-dialog')?.close(); await render(filter?.value); } catch (err) { toast(err.message || 'Could not update report.'); }
+        });
+        $('#mark-unread')?.addEventListener('click', async () => {
+            const id = Number($('#report-dialog')?.dataset.currentIssueId);
+            if (!id) return;
+            try { await apiRequest('issues/update.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ issue_id: id, action: 'mark_unread' }) }); toast('Marked unread.'); $('#report-dialog')?.close(); await render(filter?.value); } catch (err) { toast(err.message || 'Could not update report.'); }
+        });
     }
 
-    function settings() {
-        const nameEl = $('#profile-name');
-        const roleEl = $('#profile-role');
-        if (nameEl) nameEl.textContent = currentUser?.name || '';
-        if (roleEl) roleEl.textContent = currentUser?.role || '';
-        // Profile is read-only for now — no phone/email/notification fields
-        // exist in the current users table.
+    async function reportDetails() {
+        const { issueId } = currentPageState;
+        if (!issueId) {
+            toast('No report ID was provided.');
+            navigate('reports');
+            return;
+        }
+
+        try {
+            const reports = await loadIssueReports();
+            const report = reports.find(r => r.issueId === issueId);
+            if (!report) throw new Error('Report not found.');
+
+            $('#report-detail-title').textContent = `Issue #${report.issueId}: ${report.issueType}`;
+            $('#report-detail-meta').textContent = `Reported by ${report.reporter?.name || 'Anonymous'} on ${new Date(report.reportedAt.replace(' ', 'T')).toLocaleString()}`;
+            $('#report-detail-content').textContent = report.details || '';
+
+            const updateStatus = async (action) => {
+                try {
+                    await apiRequest('issues/update.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ issue_id: issueId, action }) });
+                    toast(`Report marked as ${action.split('_')[1]}.`);
+                    navigate('reports');
+                } catch (err) {
+                    toast(err.message || 'Could not update report.');
+                }
+            };
+
+            $('#mark-report-read').onclick = () => updateStatus('mark_read');
+            $('#mark-report-unread').onclick = () => updateStatus('mark_unread');
+            $('#close-report-details').onclick = () => navigate('reports');
+        } catch (error) {
+            toast(error.message);
+            navigate('reports');
+        }
+    }
+
+    async function editAdmin() {
+        const { adminId } = currentPageState;
+        if (!adminId) {
+            toast('No admin ID was provided.');
+            navigate('manage-admins');
+            return;
+        }
+
+        const form = $('#edit-admin-form');
+        const title = $('#edit-admin-title');
+        const statusToggle = form.querySelector('input[name="status"]');
+        const statusLabel = $('#status-label');
+
+        const backLink = $('[data-action="back-to-admins"]');
+        if (backLink) {
+            backLink.onclick = (e) => { e.preventDefault(); navigate('manage-admins'); };
+        }
+
+        try {
+            // We need to fetch all admins to find the one we're editing.
+            // A dedicated `admins/get.php?id=` endpoint would be more efficient.
+            const admins = await loadAdminAccounts();
+            const admin = admins.find(a => a.id == adminId);
+
+            if (!admin) throw new Error('Administrator not found.');
+
+            title.textContent = `Edit: ${escapeHtml(admin.name)}`;
+            const isActive = (admin.status || 'active') === 'active';
+            statusToggle.checked = isActive;
+            statusLabel.textContent = `Account is ${isActive ? 'Active' : 'Inactive'}`;
+
+            if (admin.id === currentUser.id) {
+                statusToggle.disabled = true;
+                const small = statusLabel.closest('.form-grid').querySelector('small');
+                if (small) small.textContent = 'You cannot change the status of your own account.';
+            }
+
+            statusToggle.onchange = async () => {
+                const newStatus = statusToggle.checked ? 'active' : 'inactive';
+
+                if (newStatus === 'inactive') {
+                    if (!await showConfirmationDialog('Are you sure you want to make this account inactive? The user will not be able to log in.')) {
+                        statusToggle.checked = true; // Revert the toggle change
+                        return;
+                    }
+                }
+
+                statusToggle.disabled = true;
+                try {
+                    const result = await apiRequest('admins/update.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ admin_id: adminId, status: newStatus }),
+                    });
+                    toast(result.message);
+                    statusLabel.textContent = `Account is ${newStatus === 'active' ? 'Active' : 'Inactive'}`;
+                } catch (error) { toast(error.message); } finally { statusToggle.disabled = false; }
+            };
+        } catch (error) { toast(error.message); navigate('manage-admins'); }
+
+        const passwordForm = $('#password-reset-form');
+        if (passwordForm) {
+            const notice = $('#password-reset-notice', passwordForm);
+
+            if (adminId === currentUser.id) {
+                passwordForm.style.display = 'none';
+            }
+
+            passwordForm.onsubmit = async (event) => {
+                event.preventDefault();
+                const newPassword = passwordForm.elements.new_password.value;
+                const confirmPassword = passwordForm.elements.confirm_password.value;
+
+                if (newPassword !== confirmPassword) {
+                    toast('The new passwords do not match.');
+                    return;
+                }
+
+                if (!await showConfirmationDialog('Are you sure you want to update this administrator\'s password? This action cannot be undone.')) {
+                    return;
+                }
+
+                const submitButton = passwordForm.querySelector('[type="submit"]');
+                submitButton.disabled = true;
+
+                try {
+                    const result = await apiRequest('admins/update-password.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ admin_id: adminId, password: newPassword }),
+                    });
+                    toast(result.message);
+                    passwordForm.reset();
+                } catch (error) {
+                    toast(error.message);
+                } finally { submitButton.disabled = false; }
+            };
+        }
+    }
+
+    async function accountPage() {
+        const form = $('#change-password-form');
+        if (!form) return;
+
+        // Reusable function to toggle password visibility
+        const setupPasswordReveal = (field) => {
+            const input = field.querySelector('input[type="password"]');
+            const button = field.querySelector('.password-reveal');
+            if (!input || !button) return;
+
+            button.addEventListener('click', () => {
+                const isPassword = input.type === 'password';
+                input.type = isPassword ? 'text' : 'password';
+                button.setAttribute('aria-pressed', String(isPassword));
+                button.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+            });
+        };
+
+        // Apply the toggle to all password fields in the form
+        $$('.password-field', form).forEach(setupPasswordReveal);
+
+        form.onsubmit = async (event) => {
+            event.preventDefault();
+            const newPassword = form.elements.new_password.value;
+            const confirmPassword = form.elements.confirm_password.value;
+
+            if (newPassword !== confirmPassword) {
+                toast('The new passwords do not match.');
+                return;
+            }
+
+            if (!await showConfirmationDialog('Are you sure you want to change your password?')) {
+                return;
+            }
+
+            const submitButton = form.querySelector('[type="submit"]');
+            submitButton.disabled = true;
+
+            try {
+                const result = await apiRequest('admins/update-password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: form.elements.current_password.value,
+                        new_password: newPassword,
+                    }),
+                });
+                toast(result.message);
+                form.reset();
+                // Reset password field types to 'password'
+                $$('input[type="text"]', form).forEach(input => {
+                    if (input.name.includes('password')) input.type = 'password';
+                });
+            } catch (error) {
+                toast(error.message);
+            } finally {
+                submitButton.disabled = false;
+            }
+        };
     }
 
     // Handler for the "Report Issue" page. Attach submit/cancel handlers

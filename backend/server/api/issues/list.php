@@ -27,11 +27,25 @@ try {
         }
     }
 
+    // Detect presence of status and archived columns so queries adapt to schema variations.
+    $hasStatus = false;
+    $hasArchived = false;
+    $colRes = $conn->query("SHOW COLUMNS FROM issue_reports LIKE 'status'");
+    if ($colRes && $colRes->num_rows) $hasStatus = true;
+    $colRes = $conn->query("SHOW COLUMNS FROM issue_reports LIKE 'archived'");
+    if ($colRes && $colRes->num_rows) $hasArchived = true;
+
     if ($timestampCol) {
-        $sql = sprintf("SELECT ir.issue_id, ir.issue_type, ir.details, ir.%s AS reported_at, u.id AS reporter_id, u.name AS reporter_name, u.email AS reporter_email FROM issue_reports ir LEFT JOIN users u ON u.id = ir.reported_by ORDER BY reported_at DESC", $timestampCol);
+        $selectExtra = '';
+        if ($hasStatus) $selectExtra .= ', ir.status AS status';
+        if ($hasArchived) $selectExtra .= ', ir.archived AS archived';
+        $sql = sprintf("SELECT ir.issue_id, ir.issue_type, ir.details, ir.%s AS reported_at%s, u.id AS reporter_id, u.name AS reporter_name, u.email AS reporter_email FROM issue_reports ir LEFT JOIN users u ON u.id = ir.reported_by ORDER BY reported_at DESC", $timestampCol, $selectExtra);
     } else {
         // No timestamp column found; return rows with NULL reported_at
-        $sql = "SELECT ir.issue_id, ir.issue_type, ir.details, NULL AS reported_at, u.id AS reporter_id, u.name AS reporter_name, u.email AS reporter_email FROM issue_reports ir LEFT JOIN users u ON u.id = ir.reported_by ORDER BY ir.issue_id DESC";
+        $selectExtra = '';
+        if ($hasStatus) $selectExtra .= ', ir.status AS status';
+        if ($hasArchived) $selectExtra .= ', ir.archived AS archived';
+        $sql = "SELECT ir.issue_id, ir.issue_type, ir.details, NULL AS reported_at" . $selectExtra . " , u.id AS reporter_id, u.name AS reporter_name, u.email AS reporter_email FROM issue_reports ir LEFT JOIN users u ON u.id = ir.reported_by ORDER BY ir.issue_id DESC";
     }
 
     $result = $conn->query($sql);
@@ -43,10 +57,12 @@ try {
             'issueType' => $row['issue_type'],
             'details' => $row['details'],
             'reportedAt' => $row['reported_at'],
+            'status' => isset($row['status']) ? $row['status'] : 'Unread',
+            'archived' => isset($row['archived']) ? (int)$row['archived'] : 0,
             'reporter' => [
-                'id' => (int) $row['reporter_id'],
-                'name' => $row['reporter_name'],
-                'email' => $row['reporter_email'],
+                'id' => isset($row['reporter_id']) ? (int) $row['reporter_id'] : null,
+                'name' => $row['reporter_name'] ?? '',
+                'email' => $row['reporter_email'] ?? '',
             ],
         ];
     }
