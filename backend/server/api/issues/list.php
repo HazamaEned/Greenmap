@@ -15,23 +15,26 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 requireRole(['superadmin']);
 
 try {
-    // Some deployments use `created_at` while others use `reported_at`.
-    // Use COALESCE to support both column names and order by the resulting alias.
-    $sql = '
-    SELECT
-        ir.issue_id,
-        ir.issue_type,
-        ir.details,
-        COALESCE(ir.reported_at, ir.created_at) AS reported_at,
-        u.id AS reporter_id,
-        u.name AS reporter_name,
-        u.email AS reporter_email
-    FROM issue_reports ir
-    LEFT JOIN users u ON u.id = ir.reported_by
-    ORDER BY reported_at DESC
-';
+    // Determine which timestamp column exists to avoid referencing missing columns.
+    $timestampCol = null;
+    $colRes = $conn->query("SHOW COLUMNS FROM issue_reports LIKE 'reported_at'");
+    if ($colRes && $colRes->num_rows) {
+        $timestampCol = 'reported_at';
+    } else {
+        $colRes = $conn->query("SHOW COLUMNS FROM issue_reports LIKE 'created_at'");
+        if ($colRes && $colRes->num_rows) {
+            $timestampCol = 'created_at';
+        }
+    }
 
-$result = $conn->query($sql);
+    if ($timestampCol) {
+        $sql = sprintf("SELECT ir.issue_id, ir.issue_type, ir.details, ir.%s AS reported_at, u.id AS reporter_id, u.name AS reporter_name, u.email AS reporter_email FROM issue_reports ir LEFT JOIN users u ON u.id = ir.reported_by ORDER BY reported_at DESC", $timestampCol);
+    } else {
+        // No timestamp column found; return rows with NULL reported_at
+        $sql = "SELECT ir.issue_id, ir.issue_type, ir.details, NULL AS reported_at, u.id AS reporter_id, u.name AS reporter_name, u.email AS reporter_email FROM issue_reports ir LEFT JOIN users u ON u.id = ir.reported_by ORDER BY ir.issue_id DESC";
+    }
+
+    $result = $conn->query($sql);
     $reports = [];
 
     while ($row = $result->fetch_assoc()) {
