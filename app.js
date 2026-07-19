@@ -1143,7 +1143,10 @@
 
                 // Now show the success dialog.
                 await loadMyContributions();
-                showMapNotification('Entry Submitted', 'Wait for an admin to verify.');
+                const isApproved = result.approvalStatus === 'Approved';
+                showMapNotification(
+                    isApproved ? 'Entry Submitted' : 'Entry Submitted',
+                    isApproved ? 'Your tree has been added to the map.' : 'Wait for an admin to verify.');
             } catch (error) {
                 toast(error.message);
             } finally {
