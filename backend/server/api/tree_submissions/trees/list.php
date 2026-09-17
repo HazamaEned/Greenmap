@@ -29,26 +29,27 @@ $speciesId = isset($_GET['species_id'])
 
 try {
     $sql = "SELECT
-                td.tree_id,
-                td.tree_photo,
-                td.tree_status,
-                td.tree_age,
-                sp.species_id,
-                sp.common_name,
-                sp.scientific_name,
-                sp.origin_status,
-                ts.latitude,
-                ts.longitude,
-                ts.submitted_at
-            FROM tree_data td
-            INNER JOIN species sp ON sp.species_id = td.species_id
-            INNER JOIN tree_submissions ts ON ts.submission_id = (
-                SELECT MAX(ts2.submission_id)
-                FROM tree_submissions ts2
-                WHERE ts2.tree_id = td.tree_id
-                AND ts2.approval_status = 'Approved'
-            )
-            WHERE td.tree_status != 'Removed'";
+            td.tree_id,
+            td.tree_photo,
+            td.tree_status,
+            td.tree_age,
+            sp.species_id,
+            sp.common_name,
+            sp.scientific_name,
+            sp.origin_status,
+            ts.latitude,
+            ts.longitude,
+            ts.submitted_at
+        FROM tree_data td
+        INNER JOIN species sp ON sp.species_id = td.species_id
+        INNER JOIN (
+            SELECT tree_id, MAX(submission_id) AS latest_submission_id
+            FROM tree_submissions
+            WHERE approval_status = 'Approved'
+            GROUP BY tree_id
+        ) AS latest ON latest.tree_id = td.tree_id
+        INNER JOIN tree_submissions ts ON ts.submission_id = latest.latest_submission_id
+        WHERE td.tree_status != 'Removed'";
 
     $types = '';
     $params = [];

@@ -5,35 +5,37 @@ header('Content-Type: application/json; charset=utf-8');
 require __DIR__ . '/../../connection.php';
 
 try {
-    $sql = '
-        SELECT
-            tree_data.tree_id,
-            tree_data.tree_photo,
-            tree_data.tree_status,
-            tree_data.tree_age,
-            species.species_id,
-            species.common_name,
-            species.scientific_name,
-            species.origin_status,
-            tree_submissions.latitude,
-            tree_submissions.longitude,
-            tree_submissions.submitted_at,
-            users.name AS added_by
-        FROM tree_data
-        INNER JOIN species
-            ON species.species_id = tree_data.species_id
-        INNER JOIN tree_submissions
-            ON tree_submissions.submission_id = (
-                SELECT MAX(latest_submission.submission_id)
-                FROM tree_submissions AS latest_submission
-                WHERE latest_submission.tree_id = tree_data.tree_id
-                  AND latest_submission.approval_status = \'Approved\'
-            )
-        INNER JOIN users
-            ON users.id = tree_submissions.submitted_by
-        WHERE tree_data.tree_status <> \'Removed\'
-        ORDER BY tree_submissions.submitted_at DESC
-    ';
+    $sql = $sql = '
+    SELECT
+        tree_data.tree_id,
+        tree_data.tree_photo,
+        tree_data.tree_status,
+        tree_data.tree_age,
+        species.species_id,
+        species.common_name,
+        species.scientific_name,
+        species.origin_status,
+        tree_submissions.latitude,
+        tree_submissions.longitude,
+        tree_submissions.submitted_at,
+        users.name AS added_by
+    FROM tree_data
+    INNER JOIN species
+        ON species.species_id = tree_data.species_id
+    INNER JOIN (
+        SELECT tree_id, MAX(submission_id) AS latest_submission_id
+        FROM tree_submissions
+        WHERE approval_status = \'Approved\'
+        GROUP BY tree_id
+    ) AS latest
+        ON latest.tree_id = tree_data.tree_id
+    INNER JOIN tree_submissions
+        ON tree_submissions.submission_id = latest.latest_submission_id
+    INNER JOIN users
+        ON users.id = tree_submissions.submitted_by
+    WHERE tree_data.tree_status <> \'Removed\'
+    ORDER BY tree_submissions.submitted_at DESC
+';
 
     $result = $conn->query($sql);
     $trees = [];
@@ -63,10 +65,5 @@ try {
         'trees' => $trees,
     ]);
 } catch (mysqli_sql_exception $exception) {
-    http_response_code(500);
-
-    echo json_encode([
-        'success' => false,
-        'message' => 'Unable to load trees.',
-    ]);
+    echo json_encode(['success' => false, 'message' => $exception->getMessage()]);
 }
