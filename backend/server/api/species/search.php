@@ -3,6 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
+sendCorsHeaders();
 
 $query = trim((string) ($_GET['q'] ?? ''));
 $limit = filter_var($_GET['limit'] ?? 20, FILTER_VALIDATE_INT);

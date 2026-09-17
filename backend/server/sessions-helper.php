@@ -3,6 +3,29 @@
 // Centralized session configuration and auth helpers.
 // Required by any endpoint that needs to know who's logged in.
 
+function sendCorsHeaders(): void
+{
+    $allowedOrigins = [
+        'https://greenmap-eta.vercel.app',
+        'http://localhost:5500', // adjust/remove if you test locally with a different setup
+    ];
+
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    if (in_array($origin, $allowedOrigins, true)) {
+        header("Access-Control-Allow-Origin: $origin");
+        header('Access-Control-Allow-Credentials: true');
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type');
+    }
+
+    // Preflight requests (OPTIONS) just need the headers above, then can stop here.
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+}
+
 function startSecureSession(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -13,8 +36,8 @@ function startSecureSession(): void
         'lifetime' => 0,
         'path' => '/',
         'httponly' => true,
-        'samesite' => 'Lax',
-        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'samesite' => 'None',
+        'secure' => true,
     ]);
 
     session_start();

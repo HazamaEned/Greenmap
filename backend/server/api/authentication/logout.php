@@ -3,6 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../sessions-helper.php';
+sendCorsHeaders();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

@@ -3,9 +3,11 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
+require __DIR__ . '/../../sessions-helper.php';
+sendCorsHeaders();
 
 try {
-    $sql = $sql = '
+    $sql = '
     SELECT
         tree_data.tree_id,
         tree_data.tree_photo,
