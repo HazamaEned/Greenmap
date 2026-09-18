@@ -12,10 +12,6 @@ $pass    = $_ENV['DB_PASS'] ?? null;
 $dbname  = $_ENV['DB_NAME'] ?? null;
 $sslCa   = $_ENV['DB_SSL_CA'] ?? null;
 
-var_dump($host, $port, $user, $pass, $dbname, $sslCa);
-die();
-
-
 $conn = mysqli_init();
 
 mysqli_ssl_set($conn, null, null, $sslCa, null, null);
