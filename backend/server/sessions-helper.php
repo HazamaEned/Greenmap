@@ -7,7 +7,7 @@ function sendCorsHeaders(): void
 {
     $allowedOrigins = [
         'https://greenmap-eta.vercel.app',
-        'http://localhost:5500', // adjust/remove if you test locally with a different setup
+        'http://localhost:5500',
     ];
 
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
