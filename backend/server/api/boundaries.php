@@ -2,6 +2,9 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
+require __DIR__ . '/../../sessions-helper.php';
+sendCorsHeaders();
+
 $cacheDirectory = dirname(__DIR__) . '/cache';
 $cacheFile = $cacheDirectory . '/pasig-boundaries-v2.json';
 $legacyCacheFile = $cacheDirectory . '/pasig-boundaries.json';
