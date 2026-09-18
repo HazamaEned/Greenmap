@@ -5,12 +5,12 @@ ini_set('display_errors', 1);
 require_once __DIR__ . '/../../env_loader.php';
 loadEnv(__DIR__ . '/../../.env');
 
-$host    = getenv('DB_HOST');
-$port    = (int) getenv('DB_PORT');
-$user    = getenv('DB_USER');
-$pass    = getenv('DB_PASS');
-$dbname  = getenv('DB_NAME');
-$sslCa   = getenv('DB_SSL_CA');
+$host    = $_ENV['DB_HOST'] ?? null;
+$port    = (int) ($_ENV['DB_PORT'] ?? 0);
+$user    = $_ENV['DB_USER'] ?? null;
+$pass    = $_ENV['DB_PASS'] ?? null;
+$dbname  = $_ENV['DB_NAME'] ?? null;
+$sslCa   = $_ENV['DB_SSL_CA'] ?? null;
 
 var_dump($host, $port, $user, $pass, $dbname, $sslCa);
 die();
