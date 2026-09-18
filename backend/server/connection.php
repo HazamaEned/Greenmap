@@ -5,6 +5,9 @@ ini_set('display_errors', 1);
 require_once __DIR__ . '/../../env_loader.php';
 loadEnv(__DIR__ . '/../../.env');
 
+var_dump($host, $port, $user, $pass, $dbname, $sslCa);
+die();
+
 $host    = getenv('DB_HOST');
 $port    = (int) getenv('DB_PORT');
 $user    = getenv('DB_USER');
