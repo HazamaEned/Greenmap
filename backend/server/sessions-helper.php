@@ -86,3 +86,10 @@ function requireRole(array $allowedRoles): array
 
     return $user;
 }
+
+// Returns the current user if logged in, or null for anonymous requests.
+// Unlike requireLogin(), this does NOT end the request on unauthenticated access.
+function getCurrentUserIfLoggedIn(): ?array
+{
+    return currentUser();
+}

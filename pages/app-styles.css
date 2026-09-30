@@ -1178,3 +1178,89 @@ html[data-theme="dark"] .map-notification-content p {
 html[data-theme="dark"] .map-notification-close {
     color: #657169; /* Dark muted text for white background */
 }
+
+
+/* ── Action-type marker colors ──────────────────────────────────────── */
+.greenmap-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 18px;
+    box-shadow: 0 2px 8px #0003;
+    border: 2px solid #fff;
+}
+.marker-trim   { background: #fef3c7; border-color: #d97706; }
+.marker-move   { background: #dbeafe; border-color: #2563eb; }
+.marker-remove { background: #fee2e2; border-color: #dc2626; }
+.marker-unknown { background: #d1fae5; border-color: #059669; }
+
+/* ── Dashboard action-type card accents ─────────────────────────────── */
+.dash-card.card-trim   { border-left: 4px solid #d97706; }
+.dash-card.card-move   { border-left: 4px solid #2563eb; }
+.dash-card.card-remove { border-left: 4px solid #dc2626; }
+.dash-card.card-urgent { border-left: 4px solid #dc2626; background: color-mix(in srgb, var(--surface) 92%, #dc2626 8%); }
+
+/* ── Action-type bar chart fills ────────────────────────────────────── */
+.bar-chart-fill.action-fill-trim   { background: #d97706; }
+.bar-chart-fill.action-fill-move   { background: #2563eb; }
+.bar-chart-fill.action-fill-remove { background: #dc2626; }
+
+/* ── Action badge (map popup + review table) ────────────────────────── */
+.action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+}
+.action-badge.action-trim   { background: #d97706; }
+.action-badge.action-move   { background: #2563eb; }
+.action-badge.action-remove { background: #dc2626; }
+.action-badge.action-unknown { background: #059669; }
+
+/* ── Priority badges ────────────────────────────────────────────────── */
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.priority-badge.priority-urgent   { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+.priority-badge.priority-high     { background: #fff7ed; color: #d97706; border: 1px solid #fdba74; }
+.priority-badge.priority-moderate { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+.priority-badge.priority-low,
+.priority-badge.priority-–       { background: var(--surface-soft); color: var(--muted); border: 1px solid var(--line); }
+
+/* ── Legend dots (action types in map legend) ───────────────────────── */
+.legend-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 2px;
+    vertical-align: middle;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #0003;
+}
+.legend-trim   { background: #d97706; }
+.legend-move   { background: #2563eb; }
+.legend-remove { background: #dc2626; }
+
+/* ── Tree popup reason text ─────────────────────────────────────────── */
+#tree-reason {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+}

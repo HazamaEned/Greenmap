@@ -25,6 +25,10 @@ try {
             tree_submissions.approval_status,
             tree_submissions.submitted_at,
             tree_submissions.reviewed_at,
+            tree_submissions.action_type,
+            tree_submissions.priority,
+            tree_submissions.reason,
+            tree_submissions.address,
             tree_data.tree_photo,
             tree_data.tree_status,
             tree_data.tree_age,
@@ -55,34 +59,38 @@ try {
     $contributions = [];
     while ($row = $result->fetch_assoc()) {
         $contributions[] = [
-            'submissionId' => (int) $row['submission_id'],
-            'treeId' => (int) $row['tree_id'],
-            'photo' => $row['tree_photo'],
-            'status' => $row['tree_status'],
-            'age' => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
-            'species' => [
-                'speciesId' => (int) $row['species_id'],
-                'commonName' => $row['common_name'],
+            'submissionId'   => (int) $row['submission_id'],
+            'treeId'         => (int) $row['tree_id'],
+            'photo'          => $row['tree_photo'],
+            'status'         => $row['tree_status'],
+            'age'            => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
+            'actionType'     => $row['action_type'] ?? null,
+            'priority'       => $row['priority']    ?? null,
+            'reason'         => $row['reason']      ?? null,
+            'address'        => $row['address']     ?? null,
+            'species'        => [
+                'speciesId'      => (int) $row['species_id'],
+                'commonName'     => $row['common_name'],
                 'scientificName' => $row['scientific_name'],
-                'originStatus' => $row['origin_status'],
-                'description' => $row['description'],
+                'originStatus'   => $row['origin_status'],
+                'description'    => $row['description'],
             ],
-            'latitude' => (float) $row['latitude'],
-            'longitude' => (float) $row['longitude'],
+            'latitude'       => (float) $row['latitude'],
+            'longitude'      => (float) $row['longitude'],
             'approvalStatus' => $row['approval_status'],
-            'addedBy' => $row['added_by'],
-            'submittedAt' => $row['submitted_at'],
-            'reviewedAt' => $row['reviewed_at'],
-            'reviewedBy' => $row['reviewed_by_name'],
+            'addedBy'        => $row['added_by'],
+            'submittedAt'    => $row['submitted_at'],
+            'reviewedAt'     => $row['reviewed_at'],
+            'reviewedBy'     => $row['reviewed_by_name'],
         ];
     }
 
     echo json_encode([
-        'success' => true,
-        'count' => count($contributions),
+        'success'       => true,
+        'count'         => count($contributions),
         'contributions' => $contributions,
     ]);
 } catch (mysqli_sql_exception $exception) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Unable to load your contributions.']);
+    echo json_encode(['success' => false, 'message' => 'Unable to load your reports.']);
 }

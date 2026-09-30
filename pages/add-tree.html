@@ -1,8 +1,8 @@
 <section class="view-stack contribution-form-view">
     <header class="panel-header dashboard-header">
         <div>
-            <span>My Contributions</span>
-            <h2>Add Tree Contribution</h2>
+            <span>Tree Action Reports</span>
+            <h2>Report a Tree</h2>
         </div>
         <button type="button" class="secondary-action header-action" id="cancel-contribution">Cancel</button>
     </header>
@@ -12,91 +12,55 @@
             <div class="form-section-heading">
                 <span>1</span>
                 <div>
-                    <h3>Species information</h3>
-                    <small>Select a catalog entry or add a species that is not listed yet.</small>
+                    <h3>Action required</h3>
+                    <small>What does this tree need? Choose the action and urgency level.</small>
                 </div>
+            </div>
+
+            <div class="form-grid two-column-grid">
+                <label class="field">
+                    Action type *
+                    <select name="action_type" id="action-type-select" required>
+                        <option value="">Choose one…</option>
+                        <option value="Trim">✂️ Trim — branches are overgrown or hazardous</option>
+                        <option value="Move">🚛 Move / Relocate — tree must be transplanted</option>
+                        <option value="Remove">🪓 Remove — tree is dead, diseased, or dangerous</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    Priority *
+                    <select name="priority" required>
+                        <option value="Moderate">Moderate — schedule normally</option>
+                        <option value="Low">Low — no immediate risk</option>
+                        <option value="High">High — address soon</option>
+                        <option value="Urgent">🔴 Urgent — immediate risk to people or property</option>
+                    </select>
+                </label>
             </div>
 
             <label class="field">
-                Species *
-                <select name="species_id" id="species-select" required>
-                    <option value="">Loading species...</option>
-                </select>
+                Reason / description *
+                <textarea name="reason" rows="3" maxlength="1000" placeholder="Describe why this tree needs action. What hazard does it pose? What is the condition of the tree?" required></textarea>
             </label>
-
-            <div class="new-species-fields hidden" id="new-species-fields">
-                <div class="form-grid two-column-grid">
-                    <label class="field">
-                        Common name *
-                        <input name="common_name" type="text" maxlength="80" placeholder="Narra">
-                    </label>
-
-                    <label class="field">
-                        Scientific name *
-                        <input name="scientific_name" type="text" maxlength="100" placeholder="Pterocarpus indicus">
-                    </label>
-
-                    <label class="field">
-                        Origin status *
-                        <select name="origin_status">
-                            <option value="Unknown">Unknown</option>
-                            <option value="Native">Native</option>
-                            <option value="Introduced">Introduced</option>
-                        </select>
-                    </label>
-                </div>
-
-                <label class="field">
-                    Species description
-                    <textarea name="description" rows="3" maxlength="5000" placeholder="Optional identifying notes about this species"></textarea>
-                </label>
-            </div>
         </section>
 
         <section class="form-section">
             <div class="form-section-heading">
                 <span>2</span>
                 <div>
-                    <h3>Tree details</h3>
-                    <small>Describe the condition of the individual tree being submitted.</small>
+                    <h3>Tree location &amp; address</h3>
+                    <small>Pin the tree on the map or enter coordinates, plus a street address for CENRO crews.</small>
                 </div>
-            </div>
-
-            <div class="form-grid two-column-grid">
-                <label class="field">
-                    Tree status *
-                    <select name="tree_status" required>
-                        <option value="Healthy">Healthy</option>
-                        <option value="Diseased">Diseased</option>
-                        <option value="Dead">Dead</option>
-                        <option value="Removed">Removed</option>
-                    </select>
-                </label>
-
-                <label class="field">
-                    Estimated age (years)
-                    <input name="tree_age" type="number" min="0" max="65535" step="1" placeholder="Optional">
-                </label>
             </div>
 
             <label class="field">
-                Tree photo
-                <input name="tree_photo" type="file" accept="image/jpeg,image/png,image/webp">
-                <small>Optional. Upload a JPG, PNG, or WebP image up to 5 MB.</small>
+                Street address *
+                <input name="address" type="text" maxlength="255" placeholder="e.g. In front of 123 Shaw Blvd, Barangay Kapitolyo" required>
             </label>
-        </section>
-
-        <section class="form-section">
-            <div class="form-section-heading">
-                <span>3</span>
-                <div>
-                    <h3>Tree location</h3>
-                    <small>Coordinates are required by the tree_submissions table.</small>
-                </div>
-            </div>
 
             <div class="field">
-                <span>Location coordinates *</span>
+                <span>GPS coordinates *</span>
                 <div class="coordinate-row">
                     <label>
                         <small>Latitude</small>
@@ -107,18 +71,71 @@
                         <input name="longitude" type="number" placeholder="121.085100" step="0.000001" min="-180" max="180" required>
                     </label>
                 </div>
-                <small>Use a selected map point, enter coordinates, or <button type="button" id="use-location" class="link-button">use my current location</button>.</small>
+                <small>Click a point on the <strong>Map</strong> page first, or <button type="button" id="use-location" class="link-button">use my current GPS location</button>.</small>
             </div>
         </section>
 
+        <section class="form-section">
+            <div class="form-section-heading">
+                <span>3</span>
+                <div>
+                    <h3>Tree details &amp; photo</h3>
+                    <small>Optional: species, condition, and a photo help CENRO crews prepare for the job.</small>
+                </div>
+            </div>
+
+            <label class="field">
+                Species (optional)
+                <select name="species_id" id="species-select">
+                    <option value="">Unknown / not sure</option>
+                </select>
+            </label>
+
+            <div class="new-species-fields hidden" id="new-species-fields">
+                <div class="form-grid two-column-grid">
+                    <label class="field">
+                        Common name
+                        <input name="common_name" type="text" maxlength="80" placeholder="Narra">
+                    </label>
+                    <label class="field">
+                        Scientific name
+                        <input name="scientific_name" type="text" maxlength="100" placeholder="Pterocarpus indicus">
+                    </label>
+                    <label class="field">
+                        Origin
+                        <select name="origin_status">
+                            <option value="Unknown">Unknown</option>
+                            <option value="Native">Native</option>
+                            <option value="Introduced">Introduced</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <label class="field">
+                Tree condition
+                <select name="tree_status">
+                    <option value="Healthy">Healthy</option>
+                    <option value="Diseased">Diseased</option>
+                    <option value="Dead">Dead</option>
+                </select>
+            </label>
+
+            <label class="field">
+                Photo of the tree
+                <input name="tree_photo" type="file" accept="image/jpeg,image/png,image/webp">
+                <small>Optional. JPG, PNG, or WebP, up to 5 MB. A clear photo speeds up CENRO assessment.</small>
+            </label>
+        </section>
+
         <div class="submission-note">
-            <strong>Saved automatically</strong>
-            <span>Your account, submission ID, tree ID, Pending approval status, and timestamps are assigned by GreenMap.</span>
+            <strong>Public reporting</strong>
+            <span>Anyone can report a tree. CENRO admins will review, schedule, and track the action to completion.</span>
         </div>
 
         <div class="form-actions">
             <button type="button" class="secondary-action" id="cancel-contribution-bottom">Cancel</button>
-            <button type="submit" class="primary-action">Submit Contribution</button>
+            <button type="submit" class="primary-action">Submit Report</button>
         </div>
     </form>
 </section>

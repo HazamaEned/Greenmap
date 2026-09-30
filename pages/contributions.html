@@ -1,15 +1,15 @@
 <section class="view-stack">
     <header class="panel-header dashboard-header">
         <div>
-            <span>Inventory</span>
-            <h2>My Contributions</h2>
+            <span>CENRO Operations</span>
+            <h2>My Tree Reports</h2>
         </div>
-        <button type="button" class="primary-action" id="add-contribution">Add Tree Contribution</button>
+        <button type="button" class="primary-action" id="add-contribution">+ Report a Tree</button>
     </header>
 
     <div id="contribution-form-region" class="contribution-form-region hidden" aria-live="polite"></div>
 
-    <div class="contribution-summary" aria-label="Contribution summary">
+    <div class="contribution-summary" aria-label="Report summary">
         <article>
             <span>Total</span>
             <strong id="contribution-total">0</strong>
@@ -30,10 +30,10 @@
 
     <div class="table-toolbar">
         <label class="field contribution-filter">
-            Approval status
+            Review status
             <select id="contribution-status-filter">
                 <option value="">All statuses</option>
-                <option value="Pending">Pending</option>
+                <option value="Pending">Pending review</option>
                 <option value="Approved">Approved</option>
                 <option value="Rejected">Rejected</option>
             </select>
@@ -44,16 +44,16 @@
         <table class="table contribution-table">
             <thead>
                 <tr>
-                    <th>Species</th>
-                    <th>Tree condition</th>
+                    <th>Action</th>
+                    <th>Priority</th>
+                    <th>Address / Location</th>
                     <th>Submitted</th>
-                    <th>Approval</th>
-                    <th>Location</th>
-                    <th>Actions</th>
+                    <th>Review status</th>
+                    <th>View</th>
                 </tr>
             </thead>
             <tbody id="contributions-body">
-                <tr><td colspan="6" class="empty-state">Loading your contributions...</td></tr>
+                <tr><td colspan="6" class="empty-state">Loading your reports...</td></tr>
             </tbody>
         </table>
     </div>

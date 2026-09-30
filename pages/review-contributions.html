@@ -2,16 +2,16 @@
     <header class="panel-header dashboard-header">
         <div>
             <span>Superadmin</span>
-            <h2>Review Contributions</h2>
+            <h2>Review Tree Reports</h2>
         </div>
         <span class="review-count" id="pending-review-count">0 pending</span>
     </header>
 
     <div class="table-toolbar">
         <label class="field contribution-filter">
-            Approval status
+            Review status
             <select id="review-status-filter">
-                <option value="Pending">Pending</option>
+                <option value="Pending">Pending review</option>
                 <option value="">All statuses</option>
                 <option value="Approved">Approved</option>
                 <option value="Rejected">Rejected</option>
@@ -23,16 +23,16 @@
         <table class="table contribution-table review-table">
             <thead>
                 <tr>
-                    <th>Species</th>
-                    <th>Submitted by</th>
-                    <th>Tree details</th>
-                    <th>Location</th>
+                    <th>Action needed</th>
+                    <th>Reported by</th>
+                    <th>Priority &amp; reason</th>
+                    <th>Address / location</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="review-contributions-body">
-                <tr><td colspan="6" class="empty-state">Loading contributions...</td></tr>
+                <tr><td colspan="6" class="empty-state">Loading reports...</td></tr>
             </tbody>
         </table>
     </div>

@@ -9,16 +9,26 @@
     const pageTitles = {
         dashboard: 'Dashboard',
         map: 'Map',
-        'add-tree': 'Add Tree',
-        contributions: 'My Contributions',
-        'review-contributions': 'Review Contributions',
+        'add-tree': 'Report a Tree',
+        contributions: 'My Reports',
+        'review-contributions': 'Review Reports',
         'manage-admins': 'Manage Admins',
         'edit-admin': 'Edit Admin',
         'account': 'My Account',
         'report-issue': 'Report Issue',
         'report-details': 'Report Details'
     };
-    pageTitles['reports'] = 'Issue Reports'; // Add new page title
+    pageTitles['reports'] = 'Issue Reports';
+
+    const ACTION_TYPES = Object.freeze(['Trim', 'Move', 'Remove']);
+    const PRIORITY_LEVELS = Object.freeze(['Urgent', 'High', 'Moderate', 'Low']);
+
+    // Color palette per action type
+    const ACTION_COLORS = Object.freeze({
+        Trim:   '#d97706',  // amber
+        Move:   '#2563eb',  // blue
+        Remove: '#dc2626',  // red
+    });
     const PASIG_BARANGAYS = Object.freeze([
         'Bagong Ilog',
         'Bagong Katipunan',
@@ -77,13 +87,20 @@
     // without re-fetching or re-building them.
     let treeMarkers = new Map();
 
-    const treeIcon = () => L.divIcon({
-        className: 'greenmap-marker greenmap-tree-marker',
-        html: '<span aria-hidden="true">&#127794;</span>',
-        iconSize: [34, 34],
-        iconAnchor: [17, 32],
-        popupAnchor: [0, -30]
-    });
+    const ACTION_ICON_EMOJI = Object.freeze({ Trim: '✂️', Move: '🚛', Remove: '🪓' });
+    const ACTION_ICON_CLASS = Object.freeze({ Trim: 'marker-trim', Move: 'marker-move', Remove: 'marker-remove' });
+
+    const treeIcon = (actionType = '') => {
+        const emoji = ACTION_ICON_EMOJI[actionType] || '🌿';
+        const cls   = ACTION_ICON_CLASS[actionType] || 'marker-unknown';
+        return L.divIcon({
+            className: `greenmap-marker greenmap-tree-marker ${cls}`,
+            html: `<span aria-hidden="true">${emoji}</span>`,
+            iconSize:    [36, 36],
+            iconAnchor:  [18, 32],
+            popupAnchor: [0, -30]
+        });
+    };
 
     const userIcon = () => L.divIcon({
         className: 'greenmap-marker greenmap-user-marker',
@@ -326,13 +343,20 @@
 
     async function saveTreeToDatabase(tree) {
         const body = new FormData();
-        if (tree.speciesId) body.append('species_id', tree.speciesId);
-        if (tree.commonName) body.append('common_name', tree.commonName);
+        // New action fields
+        if (tree.actionType) body.append('action_type', tree.actionType);
+        if (tree.priority)   body.append('priority', tree.priority);
+        if (tree.reason)     body.append('reason', tree.reason);
+        if (tree.address)    body.append('address', tree.address);
+        // Species (optional)
+        if (tree.speciesId)      body.append('species_id', tree.speciesId);
+        if (tree.commonName)     body.append('common_name', tree.commonName);
         if (tree.scientificName) body.append('scientific_name', tree.scientificName);
-        if (tree.originStatus) body.append('origin_status', tree.originStatus);
-        if (tree.description) body.append('description', tree.description);
+        if (tree.originStatus)   body.append('origin_status', tree.originStatus);
+        if (tree.description)    body.append('description', tree.description);
+        // Tree condition (optional)
         body.append('tree_status', tree.status || 'Healthy');
-        if (tree.age !== null) body.append('tree_age', tree.age);
+        if (tree.age !== null && tree.age !== undefined) body.append('tree_age', tree.age);
         body.append('latitude', tree.lat);
         body.append('longitude', tree.lon);
         if (tree.photo) body.append('tree_photo', tree.photo);
@@ -487,12 +511,11 @@
         requestStartupLocation();
 
         map.on('click', event => {
-            if (!canSubmitTrees()) return;
             pendingLocation = {
                 lat: event.latlng.lat,
                 lon: event.latlng.lng
             };
-            toast('Location selected. Open My Contributions, then Add Tree, to use it.');
+            toast('Location pinned. Go to "Report a Tree" to use it.');
         });
     }
 
@@ -562,15 +585,19 @@
 
         trees().forEach(tree => {
             const location = locationForTree(tree);
+            const actionType = tree.actionType || '';
+            const priority   = tree.priority   || '';
+            const address    = tree.address    || '';
+            const priorityTag = priority === 'Urgent' ? ' 🔴' : priority === 'High' ? ' 🟠' : '';
             const marker = L.marker([tree.latitude, tree.longitude], {
-                icon: treeIcon(),
-                title: tree.species.commonName
+                icon: treeIcon(actionType),
+                title: `${actionType || 'Tree'} — ${address || location}`
             })
                 .addTo(treeLayer)
                 .bindPopup(`
-                    <strong>${escapeHtml(tree.species.commonName)}</strong><br>
-                    <em>${escapeHtml(tree.species.scientificName)}</em><br>
-                    <small>${escapeHtml(tree.status)} &middot; ${escapeHtml(location)}</small>
+                    <strong>${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Tree')}</strong>${escapeHtml(priorityTag)}<br>
+                    <em>${escapeHtml(address || location)}</em><br>
+                    <small>${escapeHtml(tree.species?.commonName || 'Unknown species')} &middot; ${escapeHtml(tree.status || '')}</small>
                 `)
                 .on('click', () => showTree(tree, location));
 
@@ -650,26 +677,48 @@
 
         if (selectedTreePhotoUrl) {
             image.src = selectedTreePhotoUrl;
-            image.alt = `${tree.species.commonName} tree`;
+            image.alt = `${tree.actionType || 'Tree'} at ${tree.address || location}`;
             trigger.style.display = '';
         } else {
             image.src = '';
             image.alt = 'No photo available';
             trigger.style.display = 'none';
         }
-        $('#tree-name').textContent = tree.species.commonName;
-        $('#tree-species').textContent = `Scientific name: ${tree.species.scientificName}`;
-        $('#tree-planted').textContent = tree.age !== null ? `Age: ${tree.age} years` : 'Age: Unknown';
+
+        // Action type badge
+        const actionType = tree.actionType || '';
+        const priority   = tree.priority   || 'Moderate';
+        const address    = tree.address    || '';
+        const reason     = tree.reason     || '';
+        const color = ACTION_COLORS[actionType] || 'var(--primary)';
+
+        const nameEl = $('#tree-name');
+        if (nameEl) nameEl.textContent = address || tree.species?.commonName || 'Tree Action Report';
+
+        const actionEl = $('#tree-action');
+        if (actionEl) actionEl.innerHTML = `<span class="action-badge action-${(actionType || 'unknown').toLowerCase()}" style="background:${color}">${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Unknown')}</span>`;
+
+        const priorityEl = $('#tree-priority');
+        if (priorityEl) {
+            const urgentMark = priority === 'Urgent' ? ' 🔴' : priority === 'High' ? ' 🟠' : '';
+            priorityEl.textContent = `Priority: ${priority}${urgentMark}`;
+        }
 
         const statusEl = $('#tree-status');
-        if (statusEl) statusEl.textContent = `Status: ${tree.status}`;
+        if (statusEl) statusEl.textContent = `Condition: ${tree.status || '–'}${tree.species?.commonName ? ` (${tree.species.commonName})` : ''}`;
 
         const locationEl = $('#tree-location');
         if (locationEl) locationEl.textContent = `Barangay: ${location || locationForTree(tree)}`;
 
+        const addressEl = $('#tree-address');
+        if (addressEl) addressEl.textContent = `Address: ${address || '–'}`;
+
+        const reasonEl = $('#tree-reason');
+        if (reasonEl) reasonEl.textContent = reason ? `Reason: ${reason}` : '';
+
         const addedByEl = $('#tree-addedby');
-        const addedBy = tree.addedBy || tree.submittedBy?.name || currentUser?.name || 'Unknown';
-        if (addedByEl) addedByEl.textContent = `Added by: ${addedBy}`;
+        const addedBy = tree.addedBy || tree.submittedBy?.name || 'Unknown';
+        if (addedByEl) addedByEl.textContent = `Reported by: ${addedBy}`;
 
         const streetViewLink = $('#view-streetview');
         if (streetViewLink) {
@@ -701,63 +750,55 @@
     // --- Map search / filter bar ---------------------------------------------
 
     function populateMapFilters() {
-        const statusFilter = $('#map-status-filter');
         const locationFilter = $('#map-location-filter');
-        if (!statusFilter || !locationFilter) return;
+        if (!locationFilter) return;
 
-        const currentStatus = statusFilter.value;
         const currentLocation = locationFilter.value;
 
-        const statuses = ['Healthy', 'Diseased', 'Dead', 'Removed'];
-        const locations = PASIG_BARANGAYS;
-
-        statusFilter.innerHTML = '<option value="">All Status</option>'
-            + statuses.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
-
         locationFilter.innerHTML = '<option value="">All Barangays</option>'
-            + [...locations].sort().map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
+            + [...PASIG_BARANGAYS].sort().map(location => `<option value="${escapeHtml(location)}">${escapeHtml(location)}</option>`).join('');
 
-        if ([...statusFilter.options].some(option => option.value === currentStatus)) {
-            statusFilter.value = currentStatus;
-        }
         if ([...locationFilter.options].some(option => option.value === currentLocation)) {
             locationFilter.value = currentLocation;
         }
     }
 
     function applyMapFilters() {
-        const searchInput = $('#map-species-search');
-        const statusFilter = $('#map-status-filter');
+        const searchInput    = $('#map-species-search');
+        const actionFilter   = $('#map-status-filter');     // re-uses the same element, now filters action type
         const locationFilter = $('#map-location-filter');
-        if (!searchInput || !statusFilter || !locationFilter) return;
+        if (!searchInput || !actionFilter || !locationFilter) return;
 
-        const query = searchInput.value.toLowerCase().trim();
-        const status = statusFilter.value;
-        const location = locationFilter.value;
-        const hasActiveFilter = Boolean(query || status || location);
+        const query  = searchInput.value.toLowerCase().trim();
+        const action = actionFilter.value;
+        const loc    = locationFilter.value;
+        const hasActiveFilter = Boolean(query || action || loc);
         let matchCount = 0;
 
         treeMarkers.forEach(({ marker, tree, location: treeLocation }) => {
-            const haystack = `${tree.species.commonName} ${tree.species.scientificName}`.toLowerCase();
-            const matchesQuery = !query || haystack.includes(query);
-            const matchesStatus = !status || tree.status === status;
-            const matchesLocation = !location || treeLocation === location;
-            const matches = matchesQuery && matchesStatus && matchesLocation;
+            const hay = [
+                tree.actionType || '',
+                tree.address    || '',
+                tree.reason     || '',
+                tree.species?.commonName || '',
+            ].join(' ').toLowerCase();
 
-            if (matches) {
-                matchCount++;
-            }
+            const matchesQuery    = !query  || hay.includes(query);
+            const matchesAction   = !action || tree.actionType === action;
+            const matchesLocation = !loc    || treeLocation === loc;
+            const matches = matchesQuery && matchesAction && matchesLocation;
 
-            marker.setOpacity(!hasActiveFilter || matches ? 1 : 0.25);
+            if (matches) matchCount++;
+
+            marker.setOpacity(!hasActiveFilter || matches ? 1 : 0.18);
             marker.setZIndexOffset(matches && hasActiveFilter ? 1000 : 0);
         });
 
         const noResultsOverlay = $('#map-no-results') || document.createElement('div');
         noResultsOverlay.id = 'map-no-results';
         noResultsOverlay.className = 'map-no-results-overlay';
-        noResultsOverlay.innerHTML = '<strong>No trees match your filter</strong><small>Try adjusting your search criteria.</small>';
+        noResultsOverlay.innerHTML = '<strong>No reports match your filter</strong><small>Try adjusting your search criteria.</small>';
 
-        // Clear any existing removal timer
         if (noResultsOverlay.timer) {
             clearTimeout(noResultsOverlay.timer);
             noResultsOverlay.timer = null;
@@ -767,7 +808,6 @@
             if (!noResultsOverlay.parentNode) {
                 map?.getContainer().appendChild(noResultsOverlay);
             }
-            // Set a timer to remove the overlay
             noResultsOverlay.timer = setTimeout(() => {
                 noResultsOverlay.parentNode?.removeChild(noResultsOverlay);
             }, 2500);
@@ -775,29 +815,25 @@
             map.getContainer().removeChild(noResultsOverlay);
         }
 
-        // If a barangay was selected and there are results, pan and zoom to it.
-        if (location && map) {
+        if (loc && map) {
             const barangayFeature = boundaryData?.barangays?.features.find(
-                feature => (feature.properties?.name || '') === location
+                feature => (feature.properties?.name || '') === loc
             );
-
             if (barangayFeature) {
-                // Create a temporary GeoJSON layer to calculate its bounds
                 const tempLayer = L.geoJSON(barangayFeature);
                 map.fitBounds(tempLayer.getBounds(), { padding: [40, 40] });
             }
-        } else if (map && !query && !status) {
-            // If all filters are cleared, reset the view to the whole city
+        } else if (map && !query && !action) {
             const cityBounds = boundaryLayer?.getBounds();
             if (cityBounds?.isValid()) map.fitBounds(cityBounds, { padding: [35, 35] });
         }
     }
 
     function setupMapFilters() {
-        const searchInput = $('#map-species-search');
-        const statusFilter = $('#map-status-filter');
+        const searchInput    = $('#map-species-search');
+        const actionFilter   = $('#map-status-filter');
         const locationFilter = $('#map-location-filter');
-        if (!searchInput || !statusFilter || !locationFilter) return;
+        if (!searchInput || !actionFilter || !locationFilter) return;
 
         populateMapFilters();
 
@@ -807,11 +843,11 @@
             clearButton.type = 'button';
             clearButton.className = 'map-filter-action clear-filters-btn';
             clearButton.title = 'Clear all filters';
-            clearButton.innerHTML = '&#x2715;'; // A simple 'X' icon
+            clearButton.innerHTML = '&#x2715;';
 
             clearButton.onclick = () => {
                 searchInput.value = '';
-                statusFilter.value = '';
+                actionFilter.value = '';
                 locationFilter.value = '';
                 applyMapFilters();
             };
@@ -819,8 +855,8 @@
             searchContainer.appendChild(clearButton);
         }
 
-        searchInput.oninput = applyMapFilters;
-        statusFilter.onchange = applyMapFilters;
+        searchInput.oninput    = applyMapFilters;
+        actionFilter.onchange  = applyMapFilters;
         locationFilter.onchange = applyMapFilters;
     }
 
@@ -828,21 +864,17 @@
 
     async function navigate(page, state = {}) {
         if (page === 'contributions' && !isAdmin()) {
-            toast('Admin login is required to open that page.');
+            toast('Admin login is required to open that page.')
             return;
         }
 
         // The edit-admin page is also superadmin-only.
         if (['review-contributions', 'manage-admins', 'reports', 'edit-admin'].includes(page) && !isSuperadmin()) {
-            toast('Superadmin access is required to open that page.');
+            toast('Superadmin access is required to open that page.')
             return;
         }
 
-        // "Add Tree" is admin/superadmin only.
-        if (page === 'add-tree' && !canSubmitTrees()) {
-            toast('You do not have permission to submit trees.');
-            return;
-        }
+        // "Report a Tree" is open to everyone — no auth check needed.
 
         currentPageState = state;
 
@@ -931,33 +963,66 @@
     }
 
     function renderDashboard() {
-        const allTrees = recordsForBarangay(trees());
-        const myTrees = recordsForBarangay(contributionsByCurrentAdmin());
+        const allTrees   = recordsForBarangay(trees());
+        const myTrees    = recordsForBarangay(contributionsByCurrentAdmin());
 
-        $('#total-trees').textContent = allTrees.length;
-        $('#species-total').textContent = new Set(allTrees.map(tree => tree.species.speciesId)).size;
-        if ($('#my-trees')) $('#my-trees').textContent = myTrees.length;
-        if ($('#location-source')) $('#location-source').textContent = locationSource;
+        // Action type counts
+        const trimCount   = allTrees.filter(t => t.actionType === 'Trim').length;
+        const moveCount   = allTrees.filter(t => t.actionType === 'Move').length;
+        const removeCount = allTrees.filter(t => t.actionType === 'Remove').length;
+        const urgentCount = allTrees.filter(t => t.priority  === 'Urgent').length;
 
-        renderSpeciesChart(allTrees);
-        renderStatusChart(allTrees);
-        renderActivityList($('#recent-activity'), allTrees, 'No tree activity has been recorded yet.');
-        renderActivityList($('#dashboard-contributions'), myTrees, 'You have no approved contributions yet.');
+        if ($('#count-trim'))   $('#count-trim').textContent   = trimCount;
+        if ($('#count-move'))   $('#count-move').textContent   = moveCount;
+        if ($('#count-remove')) $('#count-remove').textContent = removeCount;
+        if ($('#count-urgent')) $('#count-urgent').textContent = urgentCount;
+
+        renderActionTypeChart(allTrees);
+        renderBarangayChart(allTrees);
+        renderUrgentList($('#urgent-activity'), allTrees);
+        renderRecentActivityList($('#recent-activity'), allTrees, 'No action reports have been recorded yet.');
+        renderRecentActivityList($('#dashboard-contributions'), myTrees, 'You have no approved reports yet.');
     }
 
-    function renderSpeciesChart(allTrees) {
+    function renderActionTypeChart(allTrees) {
         const chart = $('#species-chart');
+        if (!chart) return;
+
+        const totals = new Map([['Trim', 0], ['Move', 0], ['Remove', 0]]);
+        allTrees.forEach(tree => {
+            const type = tree.actionType;
+            if (totals.has(type)) totals.set(type, totals.get(type) + 1);
+        });
+
+        const entries = [...totals.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+        if (!entries.length) {
+            chart.innerHTML = '<div class="dashboard-empty"><strong>No action data</strong><small>Reports will appear here once trees are flagged.</small></div>';
+            return;
+        }
+
+        const maximum = Math.max(...entries.map(([, v]) => v));
+        chart.innerHTML = entries.map(([type, total]) => `
+            <div class="bar-chart-row">
+                <span class="bar-chart-label" title="${escapeHtml(type)}">${escapeHtml(ACTION_ICON_EMOJI[type] || '')} ${escapeHtml(type)}</span>
+                <span class="bar-chart-track"><i class="bar-chart-fill action-fill-${type.toLowerCase()}" style="width:${(total / maximum) * 100}%"></i></span>
+                <span class="bar-chart-value">${total}</span>
+            </div>
+        `).join('');
+    }
+
+    function renderBarangayChart(allTrees) {
+        const chart = $('#barangay-chart');
         if (!chart) return;
 
         const totals = new Map();
         allTrees.forEach(tree => {
-            const name = tree.species.commonName;
-            totals.set(name, (totals.get(name) || 0) + 1);
+            const loc = locationForTree(tree);
+            totals.set(loc, (totals.get(loc) || 0) + 1);
         });
 
         const entries = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
         if (!entries.length) {
-            chart.innerHTML = '<div class="dashboard-empty"><strong>No species data</strong><small>Species totals will appear when trees are approved.</small></div>';
+            chart.innerHTML = '<div class="dashboard-empty"><strong>No barangay data</strong><small>Reports will be mapped to barangays once approved.</small></div>';
             return;
         }
 
@@ -971,56 +1036,43 @@
         `).join('');
     }
 
-    function renderStatusChart(allTrees) {
-        const chart = $('#status-chart');
-        const legend = $('#status-legend');
-        if (!chart || !legend) return;
-
-        const colors = {
-            Healthy: '#3e9b66',
-            Diseased: '#d49b36',
-            Dead: '#b95454',
-            Removed: '#77827b',
-        };
-        const totals = new Map();
-        allTrees.forEach(tree => totals.set(tree.status, (totals.get(tree.status) || 0) + 1));
-        const entries = [...totals.entries()];
-        const overall = allTrees.length;
-
-        if (!overall) {
-            chart.style.background = 'var(--surface-soft)';
-            legend.innerHTML = '<li><span></span><span>No status data</span><strong>0</strong></li>';
-            return;
-        }
-
-        let cursor = 0;
-        const segments = entries.map(([status, total]) => {
-            const start = cursor;
-            cursor += total / overall * 100;
-            return `${colors[status] || '#5f8fa8'} ${start}% ${cursor}%`;
-        });
-        chart.style.background = `conic-gradient(${segments.join(',')})`;
-        legend.innerHTML = entries.map(([status, total]) => `
-            <li>
-                <i style="background:${colors[status] || '#5f8fa8'}"></i>
-                <span>${escapeHtml(status)}</span>
-                <strong>${total}</strong>
-            </li>
-        `).join('');
+    function renderUrgentList(list, allTrees) {
+        if (!list) return;
+        const urgentTrees = allTrees.filter(t => t.priority === 'Urgent').slice(0, 5);
+        list.innerHTML = urgentTrees.length
+            ? urgentTrees.map(tree => {
+                const loc = locationForTree(tree);
+                const actionType = tree.actionType || 'Unknown';
+                return `<li>
+                    <span>${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(tree.address || loc)}</span>
+                    <small>${escapeHtml(actionType)} &middot; ${escapeHtml(loc)}</small>
+                </li>`;
+            }).join('')
+            : `<li><span>No urgent reports</span><small>All clear — no trees flagged as urgent.</small></li>`;
     }
 
-    function renderActivityList(list, records, emptyMessage) {
+    function renderRecentActivityList(list, records, emptyMessage) {
         if (!list) return;
         list.innerHTML = records.length
             ? records.slice(0, 5).map(tree => {
                 const submitted = tree.submittedAt
                     ? new Date(tree.submittedAt.replace(' ', 'T')).toLocaleDateString()
                     : 'Date unavailable';
-                const status = tree.approvalStatus || tree.status;
-                return `<li><span>${escapeHtml(tree.species.commonName)}</span><small>${escapeHtml(status)} &middot; ${escapeHtml(submitted)}</small></li>`;
+                const actionType = tree.actionType || tree.status || '–';
+                const label = ACTION_ICON_EMOJI[actionType]
+                    ? `${ACTION_ICON_EMOJI[actionType]} ${actionType}`
+                    : actionType;
+                const approvalTag = tree.approvalStatus ? ` · ${tree.approvalStatus}` : '';
+                return `<li>
+                    <span>${escapeHtml(tree.address || tree.species?.commonName || 'Tree')}</span>
+                    <small>${escapeHtml(label)}${escapeHtml(approvalTag)} · ${escapeHtml(submitted)}</small>
+                </li>`;
             }).join('')
             : `<li><span>No recent activity</span><small>${escapeHtml(emptyMessage)}</small></li>`;
     }
+
+    // Keep renderActivityList as an alias for backward compatibility with any other callers
+    const renderActivityList = renderRecentActivityList;
 
     function csvValue(value) {
         return `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -1034,13 +1086,15 @@
 
         const records = recordsForBarangay(trees());
         const rows = [
-            ['Tree ID', 'Common Name', 'Scientific Name', 'Status', 'Age', 'Barangay', 'Latitude', 'Longitude', 'Submitted At', 'Added By'],
+            ['Report ID', 'Action Type', 'Priority', 'Address', 'Reason', 'Species', 'Condition', 'Barangay', 'Latitude', 'Longitude', 'Reported At', 'Reported By'],
             ...records.map(tree => [
                 tree.treeId,
-                tree.species.commonName,
-                tree.species.scientificName,
-                tree.status,
-                tree.age,
+                tree.actionType || '',
+                tree.priority   || '',
+                tree.address    || '',
+                tree.reason     || '',
+                tree.species?.commonName || '',
+                tree.status || '',
                 locationForTree(tree),
                 tree.latitude,
                 tree.longitude,
@@ -1055,54 +1109,60 @@
         const barangaySuffix = dashboardBarangayFilter
             ? `-${dashboardBarangayFilter.toLowerCase().replaceAll(' ', '-')}`
             : '';
-        link.download = `greenmap-tree-report${barangaySuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = `greenmap-action-report${barangaySuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
         URL.revokeObjectURL(url);
         const scope = dashboardBarangayFilter || 'all barangays';
-        toast(`Report generated for ${scope} with ${records.length} tree record${records.length === 1 ? '' : 's'}.`);
+        toast(`Report exported for ${scope} with ${records.length} record${records.length === 1 ? '' : 's'}.`);
     }
 
     async function addTree() {
         const form = $('#add-tree-form');
         if (!form) return;
 
-        const speciesSelect = $('#species-select', form);
+        const speciesSelect  = $('#species-select', form);
         const newSpeciesFields = $('#new-species-fields', form);
 
         const toggleNewSpecies = () => {
             const addsNewSpecies = speciesSelect.value === 'new';
             newSpeciesFields.classList.toggle('hidden', !addsNewSpecies);
-            ['common_name', 'scientific_name', 'origin_status'].forEach(name => {
+            ['common_name', 'scientific_name'].forEach(name => {
                 const input = form.elements[name];
                 if (input) input.required = addsNewSpecies;
             });
         };
 
+        // Pre-fill coordinates from a map click, if available
         if (pendingLocation) {
-            form.latitude.value = pendingLocation.lat.toFixed(6);
+            form.latitude.value  = pendingLocation.lat.toFixed(6);
             form.longitude.value = pendingLocation.lon.toFixed(6);
             pendingLocation = null;
         }
 
+        // Populate species dropdown (optional — "" = no species)
         try {
             await loadSpeciesList();
-            populateSpeciesSelect(speciesSelect);
+            if (speciesSelect) {
+                speciesSelect.innerHTML = '<option value="">Unknown / not sure</option>'
+                    + speciesList.map(s =>
+                        `<option value="${s.speciesId}">${escapeHtml(s.commonName)} (${escapeHtml(s.scientificName)})</option>`
+                    ).join('')
+                    + '<option value="new">+ Add a new species</option>';
+            }
         } catch (error) {
-            speciesSelect.innerHTML = '<option value="new">+ Add a new species</option>';
-            speciesSelect.value = 'new';
+            if (speciesSelect) speciesSelect.innerHTML = '<option value="">Unknown / not sure</option><option value="new">+ Add a new species</option>';
             toast(`Could not load species list: ${error.message}`);
         }
 
-        speciesSelect.onchange = toggleNewSpecies;
+        speciesSelect?.addEventListener('change', toggleNewSpecies);
         toggleNewSpecies();
 
         const inlineRegion = form.closest('#contribution-form-region');
         const cancel = () => {
             if (!inlineRegion) {
-                navigate('contributions');
+                navigate('dashboard');
                 return;
             }
-
             inlineRegion.innerHTML = '';
             inlineRegion.classList.add('hidden');
             $('#add-contribution')?.classList.remove('hidden');
@@ -1110,43 +1170,51 @@
         $('#cancel-contribution')?.addEventListener('click', cancel);
         $('#cancel-contribution-bottom')?.addEventListener('click', cancel);
 
-        $('#use-location').onclick = () => locate(position => {
-            form.latitude.value = position.coords.latitude.toFixed(6);
+        $('#use-location')?.addEventListener('click', () => locate(position => {
+            form.latitude.value  = position.coords.latitude.toFixed(6);
             form.longitude.value = position.coords.longitude.toFixed(6);
-        });
+        }));
 
         form.onsubmit = async event => {
             event.preventDefault();
             if (!form.reportValidity()) return;
 
-            const data = new FormData(form);
+            const data         = new FormData(form);
             const submitButton = form.querySelector('[type="submit"]');
             submitButton.disabled = true;
 
             try {
                 const selectedSpecies = data.get('species_id');
                 const result = await saveTreeToDatabase({
-                    speciesId: selectedSpecies !== 'new' ? Number(selectedSpecies) : null,
-                    commonName: selectedSpecies === 'new' ? data.get('common_name').trim() : null,
-                    scientificName: selectedSpecies === 'new' ? data.get('scientific_name').trim() : null,
-                    originStatus: selectedSpecies === 'new' ? data.get('origin_status') : null,
-                    description: selectedSpecies === 'new' ? data.get('description').trim() : null,
-                    status: data.get('tree_status'),
-                    age: data.get('tree_age') ? Number(data.get('tree_age')) : null,
+                    // Required action fields
+                    actionType: data.get('action_type'),
+                    priority:   data.get('priority'),
+                    reason:     data.get('reason')?.trim(),
+                    address:    data.get('address')?.trim(),
+                    // Location
                     lat: Number(data.get('latitude')),
                     lon: Number(data.get('longitude')),
-                    photo: data.get('tree_photo')?.size ? data.get('tree_photo') : null,
+                    // Optional species
+                    speciesId:      selectedSpecies && selectedSpecies !== 'new' ? Number(selectedSpecies) : null,
+                    commonName:     selectedSpecies === 'new' ? data.get('common_name')?.trim()     : null,
+                    scientificName: selectedSpecies === 'new' ? data.get('scientific_name')?.trim() : null,
+                    originStatus:   selectedSpecies === 'new' ? data.get('origin_status')           : null,
+                    description:    selectedSpecies === 'new' ? data.get('description')?.trim()     : null,
+                    // Optional condition
+                    status: data.get('tree_status') || 'Healthy',
+                    age:    null,
+                    photo:  data.get('tree_photo')?.size ? data.get('tree_photo') : null,
                 });
 
-                // Navigate to the map page first.
                 await navigate('map');
-
-                // Now show the success dialog.
                 await loadMyContributions();
                 const isApproved = result.approvalStatus === 'Approved';
                 showMapNotification(
-                    isApproved ? 'Entry Submitted' : 'Entry Submitted',
-                    isApproved ? 'Your tree has been added to the map.' : 'Wait for an admin to verify.');
+                    'Report Submitted',
+                    isApproved
+                        ? 'Your report has been approved and appears on the map.'
+                        : 'A CENRO admin will review and schedule the action.'
+                );
             } catch (error) {
                 toast(error.message);
             } finally {
@@ -1204,8 +1272,8 @@
 
         const allTrees = contributionsByCurrentAdmin();
         const countByStatus = status => allTrees.filter(tree => tree.approvalStatus === status).length;
-        $('#contribution-total').textContent = allTrees.length;
-        $('#contribution-pending').textContent = countByStatus('Pending');
+        $('#contribution-total').textContent    = allTrees.length;
+        $('#contribution-pending').textContent  = countByStatus('Pending');
         $('#contribution-approved').textContent = countByStatus('Approved');
         $('#contribution-rejected').textContent = countByStatus('Rejected');
 
@@ -1217,22 +1285,27 @@
                 : allTrees;
 
             body.innerHTML = visibleTrees.length
-                ? visibleTrees.map(tree => `
-                <tr>
-                    <td>
-                        <strong>${escapeHtml(tree.species.commonName)}</strong>
-                        <small>${escapeHtml(tree.species.scientificName)}</small>
-                    </td>
-                    <td>${escapeHtml(tree.status)}${tree.age !== null ? `<small>${tree.age} year${tree.age === 1 ? '' : 's'} old</small>` : ''}</td>
-                    <td>${tree.submittedAt ? escapeHtml(new Date(tree.submittedAt.replace(' ', 'T')).toLocaleString()) : 'Unavailable'}</td>
-                    <td><span class="status-badge status-${tree.approvalStatus.toLowerCase()}">${escapeHtml(tree.approvalStatus)}</span></td>
-                    <td>${tree.latitude.toFixed(4)}, ${tree.longitude.toFixed(4)}</td>
-                    <td>
-                        <button data-view-submission="${tree.submissionId}">View on Map</button>
-                    </td>
-                </tr>
-            `).join('')
-                : '<tr><td colspan="6" class="empty-state">No contributions match this status.</td></tr>';
+                ? visibleTrees.map(tree => {
+                    const actionType = tree.actionType || '–';
+                    const priority   = tree.priority   || '–';
+                    const address    = tree.address    || (tree.latitude ? `${tree.latitude.toFixed(4)}, ${tree.longitude.toFixed(4)}` : '–');
+                    const emoji      = ACTION_ICON_EMOJI[actionType] || '🌿';
+                    const submitted  = tree.submittedAt
+                        ? new Date(tree.submittedAt.replace(' ', 'T')).toLocaleString()
+                        : 'Unavailable';
+                    return `
+                    <tr>
+                        <td><strong>${escapeHtml(emoji)} ${escapeHtml(actionType)}</strong></td>
+                        <td><span class="priority-badge priority-${priority.toLowerCase()}">${escapeHtml(priority)}</span></td>
+                        <td title="${escapeHtml(tree.reason || '')}">${escapeHtml(address)}</td>
+                        <td>${escapeHtml(submitted)}</td>
+                        <td><span class="status-badge status-${tree.approvalStatus.toLowerCase()}">${escapeHtml(tree.approvalStatus)}</span></td>
+                        <td>
+                            <button data-view-submission="${tree.submissionId}">View on Map</button>
+                        </td>
+                    </tr>
+                `}).join('')
+                : '<tr><td colspan="6" class="empty-state">No reports match this status.</td></tr>';
 
             $$('[data-view-submission]', body).forEach(button => {
                 button.onclick = () => {
@@ -1250,15 +1323,15 @@
     }
 
     async function reviewContributions() {
-        const body = $('#review-contributions-body');
+        const body   = $('#review-contributions-body');
         const filter = $('#review-status-filter');
         if (!body || !filter) return;
 
         const render = async () => {
-            body.innerHTML = '<tr><td colspan="6" class="empty-state">Loading contributions...</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="empty-state">Loading reports...</td></tr>';
 
             try {
-                const submissions = await loadReviewSubmissions(filter.value);
+                const submissions  = await loadReviewSubmissions(filter.value);
                 const pendingCount = filter.value === 'Pending'
                     ? submissions.length
                     : (await loadReviewSubmissions('Pending')).length;
@@ -1266,39 +1339,45 @@
 
                 body.innerHTML = submissions.length
                     ? submissions.map(item => {
-                        const canReview = item.approvalStatus === 'Pending'
+                        const actionType = item.actionType || item.status || '–';
+                        const priority   = item.priority   || '–';
+                        const address    = item.address    || `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`;
+                        const reason     = item.reason     || '–';
+                        const emoji      = ACTION_ICON_EMOJI[actionType] || '🌿';
+                        const canReview  = item.approvalStatus === 'Pending'
                             && item.submittedBy.id !== currentUser.id;
+
                         const actions = canReview
                             ? `<button class="approve-action" data-review-id="${item.submissionId}" data-decision="Approved">Approve</button>
                                <button class="danger-link" data-review-id="${item.submissionId}" data-decision="Rejected">Reject</button>`
                             : item.approvalStatus === 'Pending'
-                                ? '<small>Cannot review your own contribution</small>'
+                                ? '<small>Cannot review your own report</small>'
                                 : `<small>Reviewed by ${escapeHtml(item.reviewedBy || 'Superadmin')}</small>`;
 
                         return `
                             <tr>
                                 <td>
-                                    <strong>${escapeHtml(item.species.commonName)}</strong>
-                                    <small>${escapeHtml(item.species.scientificName)}</small>
+                                    <strong>${escapeHtml(emoji)} ${escapeHtml(actionType)}</strong>
+                                    <small><span class="priority-badge priority-${priority.toLowerCase()}">${escapeHtml(priority)}</span></small>
                                 </td>
                                 <td>
                                     ${escapeHtml(item.submittedBy.name)}
                                     <small>${escapeHtml(item.submittedBy.email)}</small>
                                 </td>
-                                <td>${escapeHtml(item.status)}${item.age !== null ? `<small>${item.age} year${item.age === 1 ? '' : 's'} old</small>` : ''}</td>
-                                <td>${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}</td>
+                                <td title="${escapeHtml(reason)}">${escapeHtml(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}</td>
+                                <td>${escapeHtml(address)}</td>
                                 <td><span class="status-badge status-${item.approvalStatus.toLowerCase()}">${escapeHtml(item.approvalStatus)}</span></td>
                                 <td class="review-actions">${actions}</td>
                             </tr>
                         `;
                     }).join('')
-                    : '<tr><td colspan="6" class="empty-state">No contributions match this status.</td></tr>';
+                    : '<tr><td colspan="6" class="empty-state">No reports match this status.</td></tr>';
 
                 $$('[data-review-id]', body).forEach(button => {
                     button.onclick = async () => {
                         const decision = button.dataset.decision;
                         const verb = decision === 'Approved' ? 'approve' : 'reject';
-                        if (!confirm(`Are you sure you want to ${verb} this contribution?`)) return;
+                        if (!await showConfirmationDialog(`Are you sure you want to ${verb} this report?`, `${decision === 'Approved' ? 'Approve' : 'Reject'} Report`)) return;
 
                         button.disabled = true;
                         try {
