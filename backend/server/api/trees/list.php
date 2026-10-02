@@ -24,6 +24,7 @@ try {
         tree_submissions.priority,
         tree_submissions.reason,
         tree_submissions.address,
+        tree_submissions.operational_status,
         users.name AS added_by
     FROM tree_data
     INNER JOIN species
@@ -52,10 +53,11 @@ try {
             'photo'      => $row['tree_photo'],
             'status'     => $row['tree_status'],
             'age'        => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
-            'actionType' => $row['action_type'] ?? null,
-            'priority'   => $row['priority']   ?? null,
-            'reason'     => $row['reason']     ?? null,
-            'address'    => $row['address']    ?? null,
+            'actionType'        => $row['action_type']        ?? null,
+            'priority'          => $row['priority']            ?? null,
+            'reason'            => $row['reason']              ?? null,
+            'address'           => $row['address']             ?? null,
+            'operationalStatus' => $row['operational_status']  ?? 'Reported',
             'species'    => [
                 'speciesId'     => (int) $row['species_id'],
                 'commonName'    => $row['common_name'],

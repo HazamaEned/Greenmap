@@ -33,6 +33,10 @@ $priority   = trim((string) ($data['priority']   ?? 'Moderate'));
 $reason     = trim((string) ($data['reason']     ?? ''));
 $address    = trim((string) ($data['address']    ?? ''));
 
+// ── Reporter contact (optional, public form) ─────────────────────────────
+$reporterName    = trim((string) ($data['reporter_name']    ?? ''));
+$reporterContact = trim((string) ($data['reporter_contact'] ?? ''));
+
 // ── Species fields (optional) ────────────────────────────────────────────
 $speciesId      = filter_var($data['species_id'] ?? null, FILTER_VALIDATE_INT);
 $commonName     = trim((string) ($data['common_name']     ?? ''));
@@ -119,6 +123,8 @@ if (
 $description = $description !== '' ? $description : null;
 $reason      = $reason  !== '' ? $reason  : null;
 $address     = $address !== '' ? $address : null;
+$reporterName    = $reporterName    !== '' ? $reporterName    : null;
+$reporterContact = $reporterContact !== '' ? $reporterContact : null;
 $treePhoto   = $treePhoto !== '' ? $treePhoto : null;
 
 // Submitted-by may be null for anonymous public reports
@@ -197,11 +203,12 @@ try {
             'INSERT INTO tree_submissions (
                 tree_id, submitted_by, latitude, longitude,
                 action_type, priority, reason, address,
+                reporter_name, reporter_contact,
                 approval_status, reviewed_by, reviewed_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
         );
         $submissionStatement->bind_param(
-            'iiddssssssi',
+            'iiddssssssssi',
             $treeId,
             $submittedBy,
             $latitude,
@@ -210,17 +217,19 @@ try {
             $priority,
             $reason,
             $address,
+            $reporterName,
+            $reporterContact,
             $approvalStatus,
             $submittedBy
         );
     } else {
         $submissionStatement = $conn->prepare(
             'INSERT INTO tree_submissions
-                (tree_id, submitted_by, latitude, longitude, action_type, priority, reason, address)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                (tree_id, submitted_by, latitude, longitude, action_type, priority, reason, address, reporter_name, reporter_contact)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $submissionStatement->bind_param(
-            'iiddssss',
+            'iiddssssss',
             $treeId,
             $submittedBy,
             $latitude,
@@ -228,7 +237,9 @@ try {
             $actionType,
             $priority,
             $reason,
-            $address
+            $address,
+            $reporterName,
+            $reporterContact
         );
     }
     $submissionStatement->execute();

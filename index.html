@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>GreenMap</title>
+    <title>GreenMap | Pasig City Tree Management System</title>
+    <meta name="description" content="GreenMap is the official tree action monitoring system of the Pasig City Environment and Natural Resources Office (CENRO). Report, track, and manage tree trimming, relocation, and removal requests across all barangays.">
     <script>
         (() => {
             const savedTheme = localStorage.getItem('greenmap-theme');
@@ -69,7 +70,7 @@
                 </span>
                 <div>
                     <h1>GreenMap</h1>
-                    <small>Pasig Tree Action Monitor</small>
+                    <small>City Environment &amp; Natural Resources Office</small>
                 </div>
             </div>
 
@@ -93,6 +94,10 @@
                     <span class="theme-toggle-label">Dark mode</span>
                     <span class="theme-switch" aria-hidden="true"></span>
                 </button>
+                <div class="sidebar-agency">
+                    <span>Pasig City Government</span>
+                    <small>GreenMap v2.0 &mdash; CENRO Operations</small>
+                </div>
             </div>
         </aside>
 
@@ -106,7 +111,7 @@
                     <span id="welcome-user">Welcome, Guest</span>
                     <button id="login-trigger">Admin Login</button>
                     <button id="logout-button" class="hidden">Log out</button>
-                    <button class="issue-btn">Flag an Issue</button>
+                    <button class="issue-btn">Send Feedback</button>
                 </div>
             </header>
 
@@ -120,6 +125,7 @@
                         <option value="Trim">✂️ Trim</option>
                         <option value="Move">🚛 Move</option>
                         <option value="Remove">🪓 Remove</option>
+                        <option value="Completed">✅ Completed</option>
                     </select>
                     <select id="map-location-filter">
                         <option value="">All Barangays</option>
@@ -133,6 +139,7 @@
                         <span><i class="legend-dot legend-trim" aria-hidden="true"></i>Trim</span>
                         <span><i class="legend-dot legend-move" aria-hidden="true"></i>Move</span>
                         <span><i class="legend-dot legend-remove" aria-hidden="true"></i>Remove</span>
+                        <span><i class="legend-dot legend-completed" aria-hidden="true"></i>Completed</span>
                         <span><i class="legend-emoji" aria-hidden="true">&#128205;</i>My Location</span>
                     </div>
 
@@ -187,14 +194,17 @@
 
     <dialog id="issue-dialog">
         <form id="issue-form">
-            <h2>Report Issue</h2>
+            <h2>Send Feedback</h2>
             <label>
-                Issue type
+                Feedback type
                 <select id="issue-type" required>
-                    <option value="">Choose one</option>
-                    <option>Incorrect tree information</option>
-                    <option>Map or GPS problem</option>
-                    <option>Broken feature</option>
+                    <option value="">Choose one…</option>
+                    <option>Incorrect location data</option>
+                    <option>Duplicate report</option>
+                    <option>Photo does not match location</option>
+                    <option>Report needs urgent attention</option>
+                    <option>Tree action has been completed</option>
+                    <option>General inquiry</option>
                     <option>Other</option>
                 </select>
             </label>
@@ -204,9 +214,9 @@
             </label>
             <div class="dialog-actions">
                 <button type="button" id="cancel-issue">Cancel</button>
-                <button type="submit">Save Report</button>
+                <button type="submit">Submit Feedback</button>
             </div>
-            <small>Issue reports are saved to the GreenMap database.</small>
+            <small>Feedback is reviewed by the CENRO system administrator.</small>
         </form>
     </dialog>
 

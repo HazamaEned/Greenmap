@@ -87,8 +87,8 @@
     // without re-fetching or re-building them.
     let treeMarkers = new Map();
 
-    const ACTION_ICON_EMOJI = Object.freeze({ Trim: '✂️', Move: '🚛', Remove: '🪓' });
-    const ACTION_ICON_CLASS = Object.freeze({ Trim: 'marker-trim', Move: 'marker-move', Remove: 'marker-remove' });
+    const ACTION_ICON_EMOJI = Object.freeze({ Trim: '✂️', Move: '🚛', Remove: '🪓', Completed: '✅' });
+    const ACTION_ICON_CLASS = Object.freeze({ Trim: 'marker-trim', Move: 'marker-move', Remove: 'marker-remove', Completed: 'marker-completed' });
 
     const treeIcon = (actionType = '') => {
         const emoji = ACTION_ICON_EMOJI[actionType] || '🌿';
@@ -348,6 +348,9 @@
         if (tree.priority)   body.append('priority', tree.priority);
         if (tree.reason)     body.append('reason', tree.reason);
         if (tree.address)    body.append('address', tree.address);
+        // Reporter contact (optional, public form)
+        if (tree.reporterName)    body.append('reporter_name',    tree.reporterName);
+        if (tree.reporterContact) body.append('reporter_contact', tree.reporterContact);
         // Species (optional)
         if (tree.speciesId)      body.append('species_id', tree.speciesId);
         if (tree.commonName)     body.append('common_name', tree.commonName);
@@ -396,6 +399,14 @@
                 submission_id: submissionId,
                 decision,
             }),
+        });
+    }
+
+    async function markSubmissionCompleted(submissionId) {
+        return apiRequest('reviews/complete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ submission_id: submissionId }),
         });
     }
 
@@ -585,9 +596,11 @@
 
         trees().forEach(tree => {
             const location = locationForTree(tree);
-            const actionType = tree.actionType || '';
-            const priority   = tree.priority   || '';
-            const address    = tree.address    || '';
+            // If the job is done, always show as completed regardless of action type
+            const isCompleted = tree.operationalStatus === 'Completed';
+            const actionType  = isCompleted ? 'Completed' : (tree.actionType || '');
+            const priority    = tree.priority   || '';
+            const address     = tree.address    || '';
             const priorityTag = priority === 'Urgent' ? ' 🔴' : priority === 'High' ? ' 🟠' : '';
             const marker = L.marker([tree.latitude, tree.longitude], {
                 icon: treeIcon(actionType),
@@ -784,7 +797,9 @@
             ].join(' ').toLowerCase();
 
             const matchesQuery    = !query  || hay.includes(query);
-            const matchesAction   = !action || tree.actionType === action;
+            // "Completed" filter matches operationalStatus; other action types match actionType
+            const matchesAction   = !action
+                || (action === 'Completed' ? tree.operationalStatus === 'Completed' : tree.actionType === action && tree.operationalStatus !== 'Completed');
             const matchesLocation = !loc    || treeLocation === loc;
             const matches = matchesQuery && matchesAction && matchesLocation;
 
@@ -966,16 +981,24 @@
         const allTrees   = recordsForBarangay(trees());
         const myTrees    = recordsForBarangay(contributionsByCurrentAdmin());
 
-        // Action type counts
-        const trimCount   = allTrees.filter(t => t.actionType === 'Trim').length;
-        const moveCount   = allTrees.filter(t => t.actionType === 'Move').length;
-        const removeCount = allTrees.filter(t => t.actionType === 'Remove').length;
-        const urgentCount = allTrees.filter(t => t.priority  === 'Urgent').length;
+        // Action type counts (only non-completed active reports)
+        const trimCount   = allTrees.filter(t => t.actionType === 'Trim'   && t.operationalStatus !== 'Completed').length;
+        const moveCount   = allTrees.filter(t => t.actionType === 'Move'   && t.operationalStatus !== 'Completed').length;
+        const removeCount = allTrees.filter(t => t.actionType === 'Remove' && t.operationalStatus !== 'Completed').length;
+        const urgentCount = allTrees.filter(t => t.priority   === 'Urgent' && t.operationalStatus !== 'Completed').length;
 
-        if ($('#count-trim'))   $('#count-trim').textContent   = trimCount;
-        if ($('#count-move'))   $('#count-move').textContent   = moveCount;
-        if ($('#count-remove')) $('#count-remove').textContent = removeCount;
-        if ($('#count-urgent')) $('#count-urgent').textContent = urgentCount;
+        // Completed this month
+        const thisMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+        const completedCount = allTrees.filter(t =>
+            t.operationalStatus === 'Completed' &&
+            (t.submittedAt || '').slice(0, 7) === thisMonth
+        ).length;
+
+        if ($('#count-trim'))      $('#count-trim').textContent      = trimCount;
+        if ($('#count-move'))      $('#count-move').textContent      = moveCount;
+        if ($('#count-remove'))    $('#count-remove').textContent    = removeCount;
+        if ($('#count-urgent'))    $('#count-urgent').textContent    = urgentCount;
+        if ($('#count-completed')) $('#count-completed').textContent = completedCount;
 
         renderActionTypeChart(allTrees);
         renderBarangayChart(allTrees);
@@ -1191,6 +1214,9 @@
                     priority:   data.get('priority'),
                     reason:     data.get('reason')?.trim(),
                     address:    data.get('address')?.trim(),
+                    // Reporter contact (optional, public form)
+                    reporterName:    data.get('reporter_name')?.trim()    || null,
+                    reporterContact: data.get('reporter_contact')?.trim() || null,
                     // Location
                     lat: Number(data.get('latitude')),
                     lon: Number(data.get('longitude')),
@@ -1328,7 +1354,7 @@
         if (!body || !filter) return;
 
         const render = async () => {
-            body.innerHTML = '<tr><td colspan="6" class="empty-state">Loading reports...</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" class="empty-state">Loading reports...</td></tr>';
 
             try {
                 const submissions  = await loadReviewSubmissions(filter.value);
@@ -1339,23 +1365,35 @@
 
                 body.innerHTML = submissions.length
                     ? submissions.map(item => {
-                        const actionType = item.actionType || item.status || '–';
-                        const priority   = item.priority   || '–';
-                        const address    = item.address    || `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`;
-                        const reason     = item.reason     || '–';
-                        const emoji      = ACTION_ICON_EMOJI[actionType] || '🌿';
-                        const canReview  = item.approvalStatus === 'Pending'
+                        const actionType      = item.actionType || item.status || '–';
+                        const priority        = item.priority   || '–';
+                        const address         = item.address    || `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`;
+                        const reason          = item.reason     || '–';
+                        const emoji           = ACTION_ICON_EMOJI[actionType] || '🌿';
+                        const opStatus        = item.operationalStatus || 'Reported';
+                        const isCompleted     = opStatus === 'Completed';
+                        const canReview       = item.approvalStatus === 'Pending'
                             && item.submittedBy.id !== currentUser.id;
+                        const canMarkComplete = item.approvalStatus === 'Approved' && !isCompleted;
+
+                        // Reporter contact (only superadmin sees this)
+                        const reporterContact = item.reporterContact
+                            ? `<small title="Reporter contact">📞 ${escapeHtml(item.reporterContact)}</small>`
+                            : '';
 
                         const actions = canReview
                             ? `<button class="approve-action" data-review-id="${item.submissionId}" data-decision="Approved">Approve</button>
                                <button class="danger-link" data-review-id="${item.submissionId}" data-decision="Rejected">Reject</button>`
                             : item.approvalStatus === 'Pending'
                                 ? '<small>Cannot review your own report</small>'
-                                : `<small>Reviewed by ${escapeHtml(item.reviewedBy || 'Superadmin')}</small>`;
+                                : canMarkComplete
+                                    ? `<button class="complete-action" data-complete-id="${item.submissionId}">✅ Mark Completed</button>`
+                                    : `<small>Reviewed by ${escapeHtml(item.reviewedBy || 'Superadmin')}</small>`;
+
+                        const opStatusBadge = `<span class="op-status-badge op-${opStatus.toLowerCase()}">${escapeHtml(opStatus)}</span>`;
 
                         return `
-                            <tr>
+                            <tr class="${isCompleted ? 'row-completed' : ''}">
                                 <td>
                                     <strong>${escapeHtml(emoji)} ${escapeHtml(actionType)}</strong>
                                     <small><span class="priority-badge priority-${priority.toLowerCase()}">${escapeHtml(priority)}</span></small>
@@ -1363,16 +1401,19 @@
                                 <td>
                                     ${escapeHtml(item.submittedBy.name)}
                                     <small>${escapeHtml(item.submittedBy.email)}</small>
+                                    ${reporterContact}
                                 </td>
                                 <td title="${escapeHtml(reason)}">${escapeHtml(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}</td>
                                 <td>${escapeHtml(address)}</td>
+                                <td>${opStatusBadge}</td>
                                 <td><span class="status-badge status-${item.approvalStatus.toLowerCase()}">${escapeHtml(item.approvalStatus)}</span></td>
                                 <td class="review-actions">${actions}</td>
                             </tr>
                         `;
                     }).join('')
-                    : '<tr><td colspan="6" class="empty-state">No reports match this status.</td></tr>';
+                    : '<tr><td colspan="7" class="empty-state">No reports match this status.</td></tr>';
 
+                // Approve / Reject buttons
                 $$('[data-review-id]', body).forEach(button => {
                     button.onclick = async () => {
                         const decision = button.dataset.decision;
@@ -1391,8 +1432,25 @@
                         }
                     };
                 });
+
+                // Mark Completed buttons
+                $$('[data-complete-id]', body).forEach(button => {
+                    button.onclick = async () => {
+                        if (!await showConfirmationDialog('Mark this report as completed? This indicates the tree action has been carried out.', 'Mark Completed')) return;
+                        button.disabled = true;
+                        try {
+                            const result = await markSubmissionCompleted(Number(button.dataset.completeId));
+                            await loadDatabaseTrees();
+                            toast(result.message);
+                            await render();
+                        } catch (error) {
+                            toast(error.message);
+                            button.disabled = false;
+                        }
+                    };
+                });
             } catch (error) {
-                body.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(error.message)}</td></tr>`;
+                body.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(error.message)}</td></tr>`;
             }
         };
 
