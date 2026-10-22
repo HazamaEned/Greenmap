@@ -124,10 +124,10 @@
 
                 <div class="map-left-stack">
                     <div class="map-legend" aria-label="Map legend">
-                        <span><i class="legend-line city"></i>Pasig City</span>
-                        <span><i class="legend-line barangay"></i>Barangays</span>
-                        <span><i class="legend-emoji" aria-hidden="true">&#127794;</i>Trees</span>
-                        <span><i class="legend-emoji" aria-hidden="true">&#128205;</i>My Location</span>
+                        <span title="Pasig City"><i class="legend-line city"></i><span class="legend-label">Pasig City</span></span>
+                        <span title="Barangays"><i class="legend-line barangay"></i><span class="legend-label">Barangays</span></span>
+                        <span title="Trees"><i class="legend-emoji" aria-hidden="true">&#127794;</i><span class="legend-label">Trees</span></span>
+                        <span title="My Location"><i class="legend-emoji" aria-hidden="true">&#128205;</i><span class="legend-label">My Location</span></span>
                     </div>
 
                     <aside class="tree-popup hidden">
