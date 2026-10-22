@@ -1679,3 +1679,42 @@ html[data-theme="dark"] .map-notification-close {
         font-size: 26px;
     }
 }
+
+
+/* ── Outside Pasig City Warning Banner ──────────────────────────────────── */
+.outside-pasig-warning {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 22px;
+    background: #7f1d1d;
+    color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 28px #0000004d;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translate(-50%, 20px);
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.outside-pasig-warning--visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.outside-pasig-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+html[data-theme="dark"] .outside-pasig-warning {
+    background: #991b1b;
+    box-shadow: 0 8px 28px #00000080;
+}

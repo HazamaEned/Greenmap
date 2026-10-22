@@ -73,6 +73,7 @@
     let pendingLocation = null;
     let currentUser = null; // { name, role } or null if not logged in
     let locationSource = 'Not requested';
+    let userInsidePasig = null; // null = unknown, true = inside, false = outside
     let selectedTreePhotoUrl = '';
     let dashboardBarangayFilter = '';
     let currentPageState = {};
@@ -122,6 +123,33 @@
         element.classList.remove('hidden');
         clearTimeout(toast.timer);
         toast.timer = setTimeout(() => element.classList.add('hidden'), 3000);
+    }
+
+    function showOutsidePasigWarning() {
+        const existing = $('#outside-pasig-warning');
+        if (existing) {
+            clearTimeout(existing._hideTimer);
+            existing.remove();
+        }
+
+        const warning = document.createElement('div');
+        warning.id = 'outside-pasig-warning';
+        warning.className = 'outside-pasig-warning';
+        warning.setAttribute('role', 'alert');
+        warning.innerHTML = `
+            <span class="outside-pasig-icon" aria-hidden="true">&#9888;</span>
+            <span>You are not inside of Pasig City</span>
+        `;
+
+        document.body.appendChild(warning);
+
+        // Trigger fade-in on next frame
+        requestAnimationFrame(() => warning.classList.add('outside-pasig-warning--visible'));
+
+        warning._hideTimer = setTimeout(() => {
+            warning.classList.remove('outside-pasig-warning--visible');
+            warning.addEventListener('transitionend', () => warning.remove(), { once: true });
+        }, 5000);
     }
 
     function showMapNotification(title, message) {
@@ -612,7 +640,12 @@
                     <em>${escapeHtml(address || location)}</em><br>
                     <small>${escapeHtml(tree.species?.commonName || 'Unknown species')} &middot; ${escapeHtml(tree.status || '')}</small>
                 `)
-                .on('click', () => showTree(tree, location));
+                .on('click', () => {
+                    if (map) {
+                        map.panTo([tree.latitude, tree.longitude], { animate: true, duration: 0.5 });
+                    }
+                    showTree(tree, location);
+                });
 
             treeMarkers.set(tree.treeId, { marker, tree, location });
         });
@@ -651,6 +684,17 @@
                 icon: userIcon(),
                 title: 'My Location'
             }).addTo(map).bindPopup('My Location');
+        }
+
+        // Check if the user is inside Pasig City and show a warning if not
+        if (barangayPolygons.length) {
+            const insidePasig = barangayPolygons.some(polygon =>
+                geometryContainsPoint(polygon.geometry, coordinates[0], coordinates[1])
+            );
+            userInsidePasig = insidePasig;
+            if (!insidePasig) {
+                showOutsidePasigWarning();
+            }
         }
 
         const nearby = treesNear(coordinates);
@@ -1201,6 +1245,13 @@
         form.onsubmit = async event => {
             event.preventDefault();
             if (!form.reportValidity()) return;
+
+            // Block submission if the user's GPS location is outside Pasig City
+            if (userInsidePasig === false) {
+                showOutsidePasigWarning();
+                toast('You must be inside Pasig City to submit a tree report.');
+                return;
+            }
 
             const data         = new FormData(form);
             const submitButton = form.querySelector('[type="submit"]');
