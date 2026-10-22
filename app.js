@@ -338,7 +338,7 @@
                 databaseContributions = [];
                 applyRoleVisibility(); // Hides admin-only nav items again.
                 welcome(); // Now shows "Welcome, Guest".
-                await navigate('dashboard');
+                await navigate('map');
                 toast('Logged out.');
             } catch (error) {
                 toast(error.message);
@@ -892,12 +892,6 @@
             const cityBounds = boundaryLayer?.getBounds();
             if (cityBounds?.isValid()) map.fitBounds(cityBounds, { padding: [35, 35] });
         }
-
-        const searchToggle = $('#map-search-toggle');
-        if (searchToggle) {
-            searchToggle.classList.toggle('has-filters', hasActiveFilter);
-            searchToggle.title = hasActiveFilter ? 'Search and filters (filters active)' : 'Search and filters';
-        }
     }
 
     function setupMapFilters() {
@@ -918,6 +912,7 @@
                 e.stopPropagation();
                 const isOpen = searchContainer.classList.toggle('open');
                 toggleButton.setAttribute('aria-expanded', String(isOpen));
+                toggleButton.title = isOpen ? 'Close search' : 'Search and filters';
                 if (isOpen) {
                     searchInput.focus();
                 }
@@ -934,6 +929,7 @@
                 if (e.key === 'Escape') {
                     searchContainer.classList.remove('open');
                     toggleButton.setAttribute('aria-expanded', 'false');
+                    toggleButton.title = 'Search and filters';
                     toggleButton.focus();
                 }
             });
@@ -943,6 +939,7 @@
                 if (searchContainer.classList.contains('open') && !searchContainer.contains(e.target)) {
                     searchContainer.classList.remove('open');
                     toggleButton.setAttribute('aria-expanded', 'false');
+                    toggleButton.title = 'Search and filters';
                 }
             });
         }
@@ -958,7 +955,9 @@
             clearButton.onclick = () => {
                 searchInput.value = '';
                 actionFilter.value = '';
+                actionFilter.selectedIndex = 0;
                 locationFilter.value = '';
+                locationFilter.selectedIndex = 0;
                 applyMapFilters();
                 searchInput.focus();
             };
@@ -1006,6 +1005,7 @@
             panel.classList.add('hidden');
             initMap();
             setTimeout(() => map?.invalidateSize(), 50);
+            setTimeout(() => map?.invalidateSize(), 200);
             $('#map-area').classList.remove('loading'); // Fade in map
             return;
         }
@@ -2101,7 +2101,7 @@
             toast('Barangay boundaries could not be loaded. Barangay filters may be unavailable.');
         }
 
-        await navigate('dashboard');
+        await navigate('map');
     }
 
     await bootApp();

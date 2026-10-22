@@ -1100,20 +1100,6 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     display: block;
 }
 
-/* Active filter indicator badge on the toggle icon */
-.map-search-toggle.has-filters::after {
-    content: '';
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 8px;
-    height: 8px;
-    background: var(--green);
-    border: 2px solid var(--surface);
-    border-radius: 50%;
-    box-shadow: 0 0 0 1px var(--green);
-}
-
 /* Sliding inputs container */
 .map-search-inputs {
     display: flex;

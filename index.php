@@ -14,7 +14,7 @@
     <link rel="icon" type="image/png" href="assets/greenmap-icon-64.png">
     <link rel="apple-touch-icon" href="assets/greenmap-icon-192.png">
     <link rel="stylesheet" href="style.css?v=18">
-    <link rel="stylesheet" href="pages/app-styles.css?v=12">
+    <link rel="stylesheet" href="pages/app-styles.css?v=13">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -76,13 +76,14 @@
             <button class="menu-toggle" aria-label="Toggle menu">Menu</button>
             <nav aria-label="Primary">
                 <ul class="menu">
-                    <li data-page="dashboard" class="active">Dashboard</li>
-                    <li data-page="map">Map</li>
-                    <li data-page="contributions" class="hidden" data-admin-only>My Contributions</li>
+                    <li data-page="map" class="active">Map</li>
+                    <li data-page="dashboard">Dashboard</li>
+                    <li data-page="add-tree">Report a Tree</li>
+                    <li data-page="contributions" class="hidden" data-admin-only>My Reports</li>
                     <li data-page="account" class="hidden" data-admin-only>Account</li>
-                    <li data-page="review-contributions" class="hidden" data-superadmin-only>Review Contributions</li>
+                    <li data-page="review-contributions" class="hidden" data-superadmin-only>Review Reports</li>
                     <li data-page="manage-admins" class="hidden" data-superadmin-only>Manage Admins</li>
-                    <li data-page="reports" class="hidden" data-superadmin-only>Reports</li>
+                    <li data-page="reports" class="hidden" data-superadmin-only>Issue Reports</li>
                 </ul>
             </nav>
 
@@ -98,8 +99,8 @@
         <main class="main">
             <header class="topbar">
                 <div class="page-heading">
-                    <span>Pasig Urban Forestry</span>
-                    <h2 id="page-title">Dashboard</h2>
+                    <span>Pasig CENRO</span>
+                    <h2 id="page-title">Map</h2>
                 </div>
                 <div class="topbar-actions">
                     <span id="welcome-user">Welcome, User</span>
@@ -109,14 +110,18 @@
                 </div>
             </header>
 
-            <section class="map-area" id="map-area" hidden>
+            <section class="map-area" id="map-area">
                 <div id="map"></div>
 
                 <div class="map-search" id="map-search" aria-label="Search and filter trees">
                     <div class="map-search-inputs" id="map-search-inputs">
                         <input type="text" id="map-species-search" placeholder="Search species">
                         <select id="map-status-filter">
-                            <option value="">All Status</option>
+                            <option value="">All Actions</option>
+                            <option value="Trim">✂️ Trim</option>
+                            <option value="Move">🚛 Move</option>
+                            <option value="Remove">🪓 Remove</option>
+                            <option value="Completed">✅ Completed</option>
                         </select>
                         <select id="map-location-filter">
                             <option value="">All Barangays</option>
@@ -166,7 +171,7 @@
                 </div>
             </section>
 
-            <section id="panel" class="panel"><p>Loading dashboard...</p></section>
+            <section id="panel" class="panel hidden"><p>Loading...</p></section>
         </main>
     </div>
 
@@ -282,6 +287,6 @@
             });
         });
     </script>
-    <script src="app.js?v=21"></script>
+    <script src="app.js?v=23"></script>
 </body>
 </html>
