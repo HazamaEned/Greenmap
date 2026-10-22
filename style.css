@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg: #f4f6f1;
     --surface: #ffffff;
     --surface-soft: #eef3ec;
@@ -339,15 +339,22 @@ button {
 
 .map-legend {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    max-width: 100%;
-    padding: 10px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 6px;
     background: #fffffff2;
     border: 1px solid var(--line);
     border-radius: 8px;
     box-shadow: 0 12px 28px #17211c1a;
     pointer-events: auto;
+    /* Collapsed: only icons visible */
+    width: auto;
+    overflow: hidden;
+    transition: width 220ms ease;
+}
+
+.map-legend:hover {
+    width: 140px;
 }
 
 .map-legend span {
@@ -358,7 +365,33 @@ button {
     color: #314139;
     font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
 }
+
+/* Legend label -- hidden by default, visible on hover */
+.map-legend span .legend-label {
+    opacity: 0;
+    transition: opacity 160ms ease;
+}
+
+.map-legend:hover span .legend-label {
+    opacity: 1;
+}
+
+/* Dot icons for tree-action types */
+.legend-dot {
+    flex-shrink: 0;
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    font-style: normal;
+}
+
+.legend-trim     { background: #f59e0b; }
+.legend-move     { background: #3b82f6; }
+.legend-remove   { background: #ef4444; }
+.legend-completed { background: #22c55e; }
 
 .legend-line {
     width: 24px;
@@ -806,7 +839,7 @@ html[data-theme="dark"] .leaflet-popup-tip {
         font-size: 21px;
     }
 
-    /* Map gets fixed height — use svh for mobile browser chrome */
+    /* Map gets fixed height â€” use svh for mobile browser chrome */
     .map-area {
         height: calc(100svh - 56px);
         min-height: 400px;
@@ -827,7 +860,7 @@ html[data-theme="dark"] .leaflet-popup-tip {
     }
 
     .map-legend {
-        width: 100%;
+        /* On mobile keep collapsed; hover still expands */
         max-width: none;
     }
 
