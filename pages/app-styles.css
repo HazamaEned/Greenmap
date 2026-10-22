@@ -1019,42 +1019,152 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     }
 }
 
-/* Floating search/filter bar over the map, replacing the old Species Lookup tab. */
+/* Floating search/filter bar over the map - Collapsed into a magnifying glass icon by default */
 .map-search {
     position: absolute;
-    top: 16px;
-    left: auto;
-    right: 16px;
-    width: min(620px, calc(75% - 32px));
-    z-index: 500;
+    top: 18px;
+    right: 18px;
+    z-index: 900;
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-width: 620px;
-    padding: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    width: 40px;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 8px;
-    box-shadow: 0 10px 30px #17211c1a;
+    box-shadow: 0 12px 28px #17211c1a;
+    overflow: hidden;
+    transition: width 280ms cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 240ms ease,
+                background-color 200ms ease;
+}
+
+.map-search.open {
+    width: min(640px, calc(100% - 36px));
+    height: auto;
+    min-height: 40px;
+    padding: 4px 6px;
+    gap: 6px;
+    box-shadow: 0 14px 35px #17211c26;
+    overflow: visible;
+}
+
+/* Toggle button (magnifying glass by default, close icon when open) */
+.map-search-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    outline: none;
+    position: relative;
+    transition: background-color 160ms ease, color 160ms ease;
+}
+
+.map-search-toggle:hover {
+    background: var(--surface-soft);
+    color: var(--green);
+}
+
+.map-search-toggle .search-icon-svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    transition: transform 180ms ease;
+}
+
+.map-search-toggle .close-icon-svg {
+    display: none;
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+}
+
+.map-search.open .map-search-toggle .search-icon-svg {
+    display: none;
+}
+
+.map-search.open .map-search-toggle .close-icon-svg {
+    display: block;
+}
+
+/* Active filter indicator badge on the toggle icon */
+.map-search-toggle.has-filters::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: var(--green);
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--green);
+}
+
+/* Sliding inputs container */
+.map-search-inputs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    opacity: 0;
+    max-width: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    transform: translateX(12px);
+    transition: opacity 160ms ease,
+                transform 240ms ease,
+                max-width 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.map-search.open .map-search-inputs {
+    opacity: 1;
+    max-width: 1000px;
+    pointer-events: auto;
+    overflow: visible;
+    transform: translateX(0);
+    transition: opacity 220ms ease 40ms,
+                transform 240ms cubic-bezier(0.2, 0, 0, 1),
+                max-width 280ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .map-search input,
 .map-search select {
     min-height: 36px;
-    padding: 0 12px;
+    height: 36px;
+    padding: 0 10px;
     border: 1px solid var(--line-strong);
     border-radius: 8px;
     background: var(--surface);
     color: var(--ink);
+    font-size: 13px;
     outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .map-search input {
-    flex: 1 1 200px;
+    flex: 1 1 180px;
+    min-width: 120px;
 }
 
 .map-search select {
-    flex: 0 1 160px;
+    flex: 0 1 135px;
+    min-width: 110px;
 }
 
 .map-search input:focus,
@@ -1065,14 +1175,38 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
 
 @media (max-width: 760px) {
     .map-search {
-        position: static;
-        width: auto;
-        margin-bottom: 10px;
-        max-width: none;
+        top: 12px;
+        right: 12px;
     }
 
-    .map-search select {
-        flex: 1 1 45%;
+    .map-search.open {
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+        padding: 8px;
+        position: absolute;
+    }
+
+    .map-search.open .map-search-inputs {
+        flex-wrap: wrap;
+        width: 100%;
+        margin-right: 36px; /* leave room for close button */
+    }
+
+    .map-search.open .map-search-inputs input {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .map-search.open .map-search-inputs select {
+        flex: 1 1 calc(50% - 4px);
+    }
+
+    .map-search.open .map-search-toggle {
+        position: absolute;
+        top: 8px;
+        right: 8px;
     }
 }
 

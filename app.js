@@ -550,6 +550,12 @@
         requestStartupLocation();
 
         map.on('click', event => {
+            const searchContainer = $('.map-search');
+            if (searchContainer?.classList.contains('open')) {
+                searchContainer.classList.remove('open');
+                $('#map-search-toggle')?.setAttribute('aria-expanded', 'false');
+            }
+
             pendingLocation = {
                 lat: event.latlng.lat,
                 lon: event.latlng.lng
@@ -886,6 +892,12 @@
             const cityBounds = boundaryLayer?.getBounds();
             if (cityBounds?.isValid()) map.fitBounds(cityBounds, { padding: [35, 35] });
         }
+
+        const searchToggle = $('#map-search-toggle');
+        if (searchToggle) {
+            searchToggle.classList.toggle('has-filters', hasActiveFilter);
+            searchToggle.title = hasActiveFilter ? 'Search and filters (filters active)' : 'Search and filters';
+        }
     }
 
     function setupMapFilters() {
@@ -897,7 +909,46 @@
         populateMapFilters();
 
         const searchContainer = $('.map-search');
-        if (searchContainer && !searchContainer.querySelector('.clear-filters-btn')) {
+        const toggleButton = $('#map-search-toggle');
+
+        if (searchContainer && toggleButton && !toggleButton.dataset.bound) {
+            toggleButton.dataset.bound = 'true';
+
+            toggleButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = searchContainer.classList.toggle('open');
+                toggleButton.setAttribute('aria-expanded', String(isOpen));
+                if (isOpen) {
+                    searchInput.focus();
+                }
+            });
+
+            // Prevent Leaflet map panning or zooming while interacting with search elements
+            if (window.L && L.DomEvent) {
+                L.DomEvent.disableClickPropagation(searchContainer);
+                L.DomEvent.disableScrollPropagation(searchContainer);
+            }
+
+            // Close on escape key
+            searchContainer.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchContainer.classList.remove('open');
+                    toggleButton.setAttribute('aria-expanded', 'false');
+                    toggleButton.focus();
+                }
+            });
+
+            // Close when clicking outside of map-search
+            document.addEventListener('click', (e) => {
+                if (searchContainer.classList.contains('open') && !searchContainer.contains(e.target)) {
+                    searchContainer.classList.remove('open');
+                    toggleButton.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        const targetContainer = searchContainer?.querySelector('.map-search-inputs') || searchContainer;
+        if (targetContainer && !searchContainer?.querySelector('.clear-filters-btn')) {
             const clearButton = document.createElement('button');
             clearButton.type = 'button';
             clearButton.className = 'map-filter-action clear-filters-btn';
@@ -909,9 +960,10 @@
                 actionFilter.value = '';
                 locationFilter.value = '';
                 applyMapFilters();
+                searchInput.focus();
             };
 
-            searchContainer.appendChild(clearButton);
+            targetContainer.appendChild(clearButton);
         }
 
         searchInput.oninput    = applyMapFilters;

@@ -13,8 +13,8 @@
     </script>
     <link rel="icon" type="image/png" href="assets/greenmap-icon-64.png">
     <link rel="apple-touch-icon" href="assets/greenmap-icon-192.png">
-    <link rel="stylesheet" href="style.css?v=14">
-    <link rel="stylesheet" href="pages/app-styles.css?v=7">
+    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="pages/app-styles.css?v=12">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -112,14 +112,26 @@
             <section class="map-area" id="map-area" hidden>
                 <div id="map"></div>
 
-                <div class="map-search" aria-label="Search and filter trees">
-                    <input type="text" id="map-species-search" placeholder="Search species">
-                    <select id="map-status-filter">
-                        <option value="">All Status</option>
-                    </select>
-                    <select id="map-location-filter">
-                        <option value="">All Barangays</option>
-                    </select>
+                <div class="map-search" id="map-search" aria-label="Search and filter trees">
+                    <div class="map-search-inputs" id="map-search-inputs">
+                        <input type="text" id="map-species-search" placeholder="Search species">
+                        <select id="map-status-filter">
+                            <option value="">All Status</option>
+                        </select>
+                        <select id="map-location-filter">
+                            <option value="">All Barangays</option>
+                        </select>
+                    </div>
+                    <button type="button" class="map-search-toggle" id="map-search-toggle" aria-expanded="false" aria-label="Toggle search and filters" title="Search and filters">
+                        <svg class="search-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+                        </svg>
+                        <svg class="close-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
 
                 <div class="map-left-stack">
@@ -270,6 +282,6 @@
             });
         });
     </script>
-    <script src="app.js?v=18"></script>
+    <script src="app.js?v=21"></script>
 </body>
 </html>

@@ -738,6 +738,7 @@ html[data-theme="dark"] .topbar::before {
 }
 
 html[data-theme="dark"] .map-legend,
+html[data-theme="dark"] .map-search,
 html[data-theme="dark"] .gps-status button {
     background: #17201bf2;
     color: var(--ink);
