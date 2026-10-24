@@ -67,18 +67,26 @@ try {
         exit;
     }
 
+    $sessionRole = $user['role'];
+    $token = createSessionToken([
+        'user_id' => (int) $user['id'],
+        'name'    => $user['name'],
+        'role'    => $sessionRole
+    ]);
+
     startSecureSession();
     session_regenerate_id(true); // prevents session fixation on privilege change
-    $sessionRole = $user['role'];
     $_SESSION['user_id'] = $user['id'];
-    $_SESSION['name'] = $user['name'];
-    $_SESSION['role'] = $sessionRole;
+    $_SESSION['name']    = $user['name'];
+    $_SESSION['role']    = $sessionRole;
+    session_write_close(); // force immediate persistence
 
     echo json_encode([
-        'success' => true,
-        'sessionId' => session_id(),
-        'user' => [
-            'id' => (int) $user['id'],
+        'success'   => true,
+        'sessionId' => $token,
+        'token'     => $token,
+        'user'      => [
+            'id'   => (int) $user['id'],
             'name' => $user['name'],
             'role' => $sessionRole
         ]

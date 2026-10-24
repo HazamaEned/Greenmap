@@ -263,6 +263,7 @@
         const sessionId = localStorage.getItem('greenmap_session_id');
         if (sessionId) {
             headers['X-Session-Id'] = sessionId;
+            headers['Authorization'] = 'Bearer ' + sessionId;
         }
 
         const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -308,8 +309,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-        if (result.sessionId) {
-            localStorage.setItem('greenmap_session_id', result.sessionId);
+        if (result.sessionId || result.token) {
+            localStorage.setItem('greenmap_session_id', result.sessionId || result.token);
         }
         currentUser = result.user;
     }
@@ -1786,7 +1787,10 @@
                 stopCamera();
                 clearPhoto();
                 await navigate('map');
-                await loadMyContributions();
+                if (isAdmin()) {
+                    try { await loadMyContributions(); } catch {}
+                }
+                try { await markers(); } catch {}
                 const isApproved = result.approvalStatus === 'Approved';
                 showMapNotification(
                     'Report Submitted',
