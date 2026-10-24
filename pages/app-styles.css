@@ -786,6 +786,52 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     color: var(--green);
 }
 
+.admin-list-item > div:last-child {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.edit-admin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+.edit-admin-btn:hover {
+    background: var(--surface-soft);
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.edit-admin-btn:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+
+.edit-admin-btn:active {
+    transform: translateY(1px);
+}
+
+.edit-admin-btn svg {
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
 .form-box {
     padding: 18px;
     background: var(--surface);

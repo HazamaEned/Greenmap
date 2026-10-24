@@ -1607,7 +1607,12 @@
                             </div>
                             <div>
                                 <span class="role-badge role-${admin.role}">${escapeHtml(admin.role)}</span>
-                                <button class="edit-admin-btn" data-admin-id="${admin.id}">Edit</button>
+                                <button class="edit-admin-btn" data-admin-id="${admin.id}" title="Edit Administrator">
+                                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L4.75 13.25 2 14l.75-2.75L11.5 2.5z"></path>
+                                    </svg>
+                                    <span>Edit</span>
+                                </button>
                             </div>
                         </article>
                     `).join('')
