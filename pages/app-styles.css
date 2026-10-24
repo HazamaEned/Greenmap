@@ -38,20 +38,67 @@
     gap: 12px;
 }
 
-.dashboard-barangay-filter {
+.dashboard-barangay-filter,
+.dashboard-status-filter {
     display: grid;
     gap: 5px;
-    min-width: 210px;
+    min-width: 180px;
 }
 
-.dashboard-barangay-filter select {
+.dashboard-barangay-filter span,
+.dashboard-status-filter span {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--muted);
+}
+
+.dashboard-barangay-filter select,
+.dashboard-status-filter select,
+.dashboard-actions select,
+#report-status-filter {
     min-height: 40px;
-    padding: 0 34px 0 11px;
+    padding: 0 34px 0 12px;
     border: 1px solid var(--line-strong);
     border-radius: 8px;
     background: var(--surface);
     color: var(--ink);
     font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23657169' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    background-size: 14px;
+}
+
+.dashboard-barangay-filter select:hover,
+.dashboard-status-filter select:hover,
+.dashboard-actions select:hover,
+#report-status-filter:hover {
+    border-color: var(--green);
+}
+
+.dashboard-barangay-filter select:focus,
+.dashboard-status-filter select:focus,
+.dashboard-actions select:focus,
+#report-status-filter:focus {
+    outline: 2px solid var(--green);
+    outline-offset: 1px;
+    border-color: var(--green);
+}
+
+html[data-theme="dark"] .dashboard-barangay-filter select,
+html[data-theme="dark"] .dashboard-status-filter select,
+html[data-theme="dark"] .dashboard-actions select,
+html[data-theme="dark"] #report-status-filter {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3b2a8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 .report-action {
@@ -1588,17 +1635,7 @@ html[data-theme="dark"] .map-notification-close {
         justify-content: flex-start;
     }
 
-    #welcome-user {
-        width: 100%;
-        font-size: 12px;
-    }
 
-    #login-trigger,
-    #logout-button {
-        flex: 1;
-        min-height: 34px;
-        font-size: 13px;
-    }
 
     .issue-btn {
         flex: 1;

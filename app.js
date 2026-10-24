@@ -999,6 +999,7 @@
             item.classList.toggle('active', item.dataset.page === page);
         });
         $('.menu').classList.remove('open');
+        $('.sidebar-footer')?.classList.remove('open');
         $('#page-title').textContent = pageTitles[page] || 'GreenMap';
         const panel = $('#panel');
 
@@ -2020,7 +2021,13 @@
 
     function welcome() {
         const el = $('#welcome-user');
-        if (el) el.textContent = `Welcome, ${currentUser?.name || 'Guest'}`;
+        if (el) el.textContent = currentUser?.name || 'Guest';
+        const roleEl = $('#user-role-label');
+        if (roleEl) {
+            roleEl.textContent = currentUser
+                ? (currentUser.role === 'superadmin' ? 'Superadmin' : 'Administrator')
+                : 'Public Access';
+        }
     }
 
     function applyRoleVisibility() {
@@ -2040,7 +2047,10 @@
         item.onclick = () => navigate(item.dataset.page);
     });
 
-    $('.menu-toggle')?.addEventListener('click', () => $('.menu').classList.toggle('open'));
+    $('.menu-toggle')?.addEventListener('click', () => {
+        $('.menu')?.classList.toggle('open');
+        $('.sidebar-footer')?.classList.toggle('open');
+    });
     $('#close-tree-popup')?.addEventListener('click', () => $('.tree-popup').classList.add('hidden'));
     $('#tree-photo-trigger')?.addEventListener('click', openTreePhoto);
     $('#close-photo-viewer')?.addEventListener('click', closeTreePhoto);

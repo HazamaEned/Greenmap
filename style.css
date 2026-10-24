@@ -62,6 +62,103 @@ button {
     padding-top: 18px;
 }
 
+/* Sidebar User Session Card (Desktop & Mobile Drawer) */
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #ffffff0d;
+    border: 1px solid #ffffff1a;
+    color: #eef6ef;
+    margin-bottom: 12px;
+}
+
+.sidebar-user .user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.sidebar-user .user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #ffffff14;
+    color: #eef6ef;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.sidebar-user .user-meta {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.sidebar-user .user-meta strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.sidebar-user .user-meta small {
+    display: block;
+    font-size: 10px;
+    color: #a3b2a8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.sidebar-user .user-auth-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: 28px;
+    padding: 0 10px;
+    border: 1px solid #ffffff24;
+    border-radius: 6px;
+    background: #ffffff12;
+    color: #ffffff;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.sidebar-user .user-auth-btn:hover {
+    background: #ffffff26;
+    border-color: #ffffff44;
+}
+
+.sidebar-user .logout-action-btn:hover {
+    background: #dc26262b;
+    border-color: #dc262688;
+    color: #fca5a5;
+}
+
+.sidebar-user .logout-action-btn svg {
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
 .theme-toggle {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -785,9 +882,14 @@ html[data-theme="dark"] .leaflet-popup-tip {
     }
 
     .sidebar-footer {
+        display: none;
         margin-top: 10px;
         padding-top: 10px;
         border-top: 1px solid #ffffff1a;
+    }
+
+    .sidebar-footer.open {
+        display: block;
     }
 
     .theme-toggle {
@@ -898,18 +1000,21 @@ html[data-theme="dark"] .leaflet-popup-tip {
 
 @media (max-width: 520px) {
     .topbar {
-        display: grid;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 52px;
+        padding: 8px 14px;
     }
 
     .topbar-actions {
-        align-items: stretch;
-    }
-
-    #welcome-user {
-        white-space: normal;
+        align-items: center;
     }
 
     .issue-btn {
-        width: 100%;
+        width: auto;
+        min-height: 34px;
+        padding: 0 12px;
+        font-size: 13px;
     }
 }

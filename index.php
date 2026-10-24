@@ -88,11 +88,33 @@
             </nav>
 
             <div class="sidebar-footer">
+                <div class="sidebar-user" id="sidebar-user">
+                    <div class="user-info">
+                        <span class="user-avatar" aria-hidden="true">&#128100;</span>
+                        <div class="user-meta">
+                            <strong id="welcome-user">Guest</strong>
+                            <small id="user-role-label">Public Access</small>
+                        </div>
+                    </div>
+                    <button id="login-trigger" class="user-auth-btn" type="button">Login</button>
+                    <button id="logout-button" class="user-auth-btn logout-action-btn hidden" type="button" title="Log out">
+                        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3"></path>
+                            <polyline points="10 11 13 8 10 5"></polyline>
+                            <line x1="13" y1="8" x2="5" y2="8"></line>
+                        </svg>
+                        <span>Log out</span>
+                    </button>
+                </div>
                 <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false">
                     <span class="theme-toggle-icon" aria-hidden="true">&#9790;</span>
                     <span class="theme-toggle-label">Dark mode</span>
                     <span class="theme-switch" aria-hidden="true"></span>
                 </button>
+                <div class="sidebar-agency">
+                    <span>Pasig City Government</span>
+                    <small>GreenMap v2.0 &mdash; CENRO Operations</small>
+                </div>
             </div>
         </aside>
 
@@ -103,10 +125,7 @@
                     <h2 id="page-title">Map</h2>
                 </div>
                 <div class="topbar-actions">
-                    <span id="welcome-user">Welcome, User</span>
-                    <button id="login-trigger">Admin Login</button>
-                    <button id="logout-button" class="hidden">Log out</button>
-                    <button class="issue-btn">Report Issue</button>
+                    <button class="issue-btn" type="button">Report Issue</button>
                 </div>
             </header>
 
