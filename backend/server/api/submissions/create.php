@@ -132,10 +132,20 @@ if ($hasPhotoUpload) {
     }
 }
 
-$isAdminOrSuperadmin = $user !== null && in_array($user['role'] ?? '', ['admin', 'superadmin'], true);
+// Superadmins review, verify, and complete reports — they do not submit reports directly
+if (($user['role'] ?? '') === 'superadmin') {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Superadmins review and verify entries and cannot submit tree reports directly.'
+    ]);
+    exit;
+}
+
+$isAdmin = $user !== null && ($user['role'] ?? '') === 'admin';
 
 // Guests are only permitted to request trimming or removal; moving/relocating requires admin authority
-if ($actionType === 'Move' && !$isAdminOrSuperadmin) {
+if ($actionType === 'Move' && !$isAdmin) {
     http_response_code(403);
     echo json_encode([
         'success' => false,
@@ -144,7 +154,7 @@ if ($actionType === 'Move' && !$isAdminOrSuperadmin) {
     exit;
 }
 
-$allowedActionTypes = $isAdminOrSuperadmin ? ['Trim', 'Move', 'Remove'] : ['Trim', 'Remove'];
+$allowedActionTypes = $isAdmin ? ['Trim', 'Move', 'Remove'] : ['Trim', 'Remove'];
 $allowedPriorities  = ['Urgent', 'High', 'Moderate', 'Low'];
 $allowedOrigins     = ['Native', 'Introduced', 'Unknown'];
 $allowedStatuses    = ['Healthy', 'Diseased', 'Dead', 'Removed'];
@@ -209,7 +219,13 @@ try {
              ON DUPLICATE KEY UPDATE species_id = LAST_INSERT_ID(species_id)'
         );
         $speciesStatement->execute();
-        $speciesId = $conn->insert_id;
+        $speciesId = (int) $conn->insert_id;
+        if ($speciesId <= 0) {
+            $checkSpecies = $conn->query("SELECT species_id FROM species WHERE scientific_name = 'Unknown' LIMIT 1");
+            if ($row = $checkSpecies->fetch_assoc()) {
+                $speciesId = (int) $row['species_id'];
+            }
+        }
     } elseif ($usesExistingSpecies) {
         $speciesCheck = $conn->prepare(
             'SELECT species_id FROM species WHERE species_id = ? LIMIT 1'
@@ -453,7 +469,7 @@ function pointInRingGeo(float $lat, float $lon, array $ring): bool {
         $lonJ = (float) $ring[$j][0];
         $latJ = (float) $ring[$j][1];
         $intersects = (($lonI > $lon) !== ($lonJ > $lon))
-            && ($lat < ($latJ - latI) * ($lon - lonI) / ($lonJ - $lonI) + $latI);
+            && ($lat < ($latJ - $latI) * ($lon - $lonI) / ($lonJ - $lonI) + $latI);
         if ($intersects) {
             $inside = !$inside;
         }

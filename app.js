@@ -263,10 +263,17 @@
             credentials: 'include', // required so PHP session cookies are sent
             ...options
         });
-        const result = await response.json().catch(() => null);
+        const text = await response.text();
+        let result = null;
+        try {
+            result = JSON.parse(text);
+        } catch {
+            // response was not JSON (e.g. server crash or HTML error)
+        }
 
         if (!response.ok || !result?.success) {
-            throw new Error(result?.message || 'The database request failed.');
+            const message = result?.message || (text.trim() && text.length < 150 && !text.includes('<') ? text.trim() : `Server error (${response.status})`);
+            throw new Error(message || 'The database request failed.');
         }
 
         return result;

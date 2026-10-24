@@ -3,6 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
+require __DIR__ . '/../../sessions-helper.php';
 sendCorsHeaders();
 
 $query = trim((string) ($_GET['q'] ?? ''));
