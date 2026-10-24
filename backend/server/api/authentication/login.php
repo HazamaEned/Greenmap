@@ -76,6 +76,7 @@ try {
 
     echo json_encode([
         'success' => true,
+        'sessionId' => session_id(),
         'user' => [
             'id' => (int) $user['id'],
             'name' => $user['name'],

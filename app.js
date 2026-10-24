@@ -259,9 +259,16 @@
     }
 
     async function apiRequest(path, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        const sessionId = localStorage.getItem('greenmap_session_id');
+        if (sessionId) {
+            headers['X-Session-Id'] = sessionId;
+        }
+
         const response = await fetch(`${apiBaseUrl}${path}`, {
             credentials: 'include', // required so PHP session cookies are sent
-            ...options
+            ...options,
+            headers
         });
         const text = await response.text();
         let result = null;
@@ -284,7 +291,12 @@
     async function checkAuth() {
         try {
             const result = await apiRequest('authentication/me.php');
-            currentUser = result.loggedIn ? result.user : null;
+            if (result.loggedIn && result.user) {
+                currentUser = result.user;
+            } else {
+                currentUser = null;
+                localStorage.removeItem('greenmap_session_id');
+            }
         } catch {
             currentUser = null;
         }
@@ -296,11 +308,17 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
+        if (result.sessionId) {
+            localStorage.setItem('greenmap_session_id', result.sessionId);
+        }
         currentUser = result.user;
     }
 
     async function logout() {
-        await apiRequest('authentication/logout.php', { method: 'POST' });
+        try {
+            await apiRequest('authentication/logout.php', { method: 'POST' });
+        } catch {}
+        localStorage.removeItem('greenmap_session_id');
         currentUser = null;
     }
 

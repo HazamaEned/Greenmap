@@ -16,7 +16,8 @@ function sendCorsHeaders(): void
         header("Access-Control-Allow-Origin: $origin");
         header('Access-Control-Allow-Credentials: true');
         header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type');
+        header('Access-Control-Allow-Headers: Content-Type, X-Session-Id');
+        header('Access-Control-Expose-Headers: X-Session-Id');
     }
 
     // Preflight requests (OPTIONS) just need the headers above, then can stop here.
@@ -32,13 +33,23 @@ function startSecureSession(): void
         return;
     }
 
+    ini_set('session.cookie_samesite', 'None');
+    ini_set('session.cookie_secure', '1');
+    ini_set('session.cookie_httponly', '1');
+
     session_set_cookie_params([
         'lifetime' => 0,
-        'path' => '/',
+        'path'     => '/',
         'httponly' => true,
         'samesite' => 'None',
-        'secure' => true,
+        'secure'   => true,
     ]);
+
+    // Check if session ID was provided via custom header (bypasses cross-site cookie restrictions between Vercel & Render)
+    $headerSessionId = $_SERVER['HTTP_X_SESSION_ID'] ?? null;
+    if ($headerSessionId && preg_match('/^[a-zA-Z0-9,-]{16,128}$/', $headerSessionId)) {
+        session_id($headerSessionId);
+    }
 
     session_start();
 }
