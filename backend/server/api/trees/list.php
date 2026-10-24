@@ -24,6 +24,7 @@ try {
         species.common_name,
         species.scientific_name,
         species.origin_status,
+        tree_submissions.submission_id,
         tree_submissions.latitude,
         tree_submissions.longitude,
         tree_submissions.submitted_at,
@@ -31,6 +32,7 @@ try {
         tree_submissions.priority,
         tree_submissions.reason,
         tree_submissions.address,
+        tree_submissions.approval_status,
         ' . $areaTypeSelect . '
         tree_submissions.operational_status,
         users.name AS added_by
@@ -40,7 +42,7 @@ try {
     INNER JOIN (
         SELECT tree_id, MAX(submission_id) AS latest_submission_id
         FROM tree_submissions
-        WHERE approval_status = \'Approved\'
+        WHERE approval_status IN (\'Approved\', \'Pending\')
         GROUP BY tree_id
     ) AS latest
         ON latest.tree_id = tree_data.tree_id
@@ -57,26 +59,28 @@ try {
 
     while ($row = $result->fetch_assoc()) {
         $trees[] = [
-            'treeId'     => (int) $row['tree_id'],
-            'photo'      => $row['tree_photo'],
-            'status'     => $row['tree_status'],
-            'age'        => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
+            'treeId'            => (int) $row['tree_id'],
+            'submissionId'      => (int) ($row['submission_id'] ?? 0),
+            'photo'             => $row['tree_photo'],
+            'status'            => $row['tree_status'],
+            'age'               => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
             'actionType'        => $row['action_type']        ?? null,
             'priority'          => $row['priority']            ?? null,
             'reason'            => $row['reason']              ?? null,
             'address'           => $row['address']             ?? null,
             'areaType'          => $row['area_type']           ?? 'Public',
+            'approvalStatus'    => $row['approval_status']     ?? 'Approved',
             'operationalStatus' => $row['operational_status']  ?? 'Reported',
-            'species'    => [
+            'species'           => [
                 'speciesId'     => (int) $row['species_id'],
                 'commonName'    => $row['common_name'],
                 'scientificName'=> $row['scientific_name'],
                 'originStatus'  => $row['origin_status'],
             ],
-            'latitude'    => (float) $row['latitude'],
-            'longitude'   => (float) $row['longitude'],
-            'submittedAt' => $row['submitted_at'],
-            'addedBy'     => $row['added_by'],
+            'latitude'          => (float) $row['latitude'],
+            'longitude'         => (float) $row['longitude'],
+            'submittedAt'       => $row['submitted_at'],
+            'addedBy'           => $row['added_by'],
         ];
     }
 

@@ -109,12 +109,12 @@
     // without re-fetching or re-building them.
     let treeMarkers = new Map();
 
-    const ACTION_ICON_EMOJI = Object.freeze({ Trim: '✂️', Move: '🚛', Remove: '🪓', Completed: '✅' });
-    const ACTION_ICON_CLASS = Object.freeze({ Trim: 'marker-trim', Move: 'marker-move', Remove: 'marker-remove', Completed: 'marker-completed' });
+    const ACTION_ICON_EMOJI = Object.freeze({ Trim: '✂️', Move: '🚛', Remove: '🪓', Completed: '✅', Pending: '❓' });
+    const ACTION_ICON_CLASS = Object.freeze({ Trim: 'marker-trim', Move: 'marker-move', Remove: 'marker-remove', Completed: 'marker-completed', Pending: 'marker-pending' });
 
-    const treeIcon = (actionType = '') => {
-        const emoji = ACTION_ICON_EMOJI[actionType] || '🌿';
-        const cls   = ACTION_ICON_CLASS[actionType] || 'marker-unknown';
+    const treeIcon = (actionType = '', isPending = false) => {
+        const emoji = isPending ? '❓' : (ACTION_ICON_EMOJI[actionType] || '🌿');
+        const cls   = isPending ? 'marker-pending' : (ACTION_ICON_CLASS[actionType] || 'marker-unknown');
         return L.divIcon({
             className: `greenmap-marker greenmap-tree-marker ${cls}`,
             html: `<span aria-hidden="true">${emoji}</span>`,
@@ -733,21 +733,24 @@
 
         trees().forEach(tree => {
             const location = locationForTree(tree);
-            // If the job is done, always show as completed regardless of action type
             const isCompleted = tree.operationalStatus === 'Completed';
-            const actionType  = isCompleted ? 'Completed' : (tree.actionType || '');
+            const isPending   = (tree.approvalStatus || 'Approved') === 'Pending';
+            const actionType  = isPending ? 'Pending' : (isCompleted ? 'Completed' : (tree.actionType || ''));
+            const requestedAction = tree.actionType || 'Tree';
             const priority    = tree.priority   || '';
             const address     = tree.address    || '';
             const priorityTag = priority === 'Urgent' ? ' 🔴' : priority === 'High' ? ' 🟠' : '';
+            const popupTitle  = isPending ? `❓ Under Review (${escapeHtml(requestedAction)})` : `${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Tree')}`;
             const marker = L.marker([tree.latitude, tree.longitude], {
-                icon: treeIcon(actionType),
-                title: `${actionType || 'Tree'} — ${address || location}`
+                icon: treeIcon(actionType, isPending),
+                title: `${isPending ? 'Under Review' : (actionType || 'Tree')} — ${address || location}`
             })
                 .addTo(treeLayer)
                 .bindPopup(`
-                    <strong>${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Tree')}</strong>${escapeHtml(priorityTag)}<br>
+                    <strong>${popupTitle}</strong>${escapeHtml(priorityTag)}<br>
                     <em>${escapeHtml(address || location)}</em><br>
                     <small>${escapeHtml(tree.species?.commonName || 'Unknown species')} &middot; ${escapeHtml(tree.status || '')} &middot; ${escapeHtml((tree.areaType || 'Public') + ' Area')}</small>
+                    ${isPending ? '<br><small style="color:#ca8a04; font-weight:700;">Awaiting Superadmin Review</small>' : ''}
                 `)
                 .on('click', () => {
                     if (map) {
@@ -850,17 +853,24 @@
         }
 
         // Action type badge
+        const isPending  = (tree.approvalStatus || 'Approved') === 'Pending';
         const actionType = tree.actionType || '';
         const priority   = tree.priority   || 'Moderate';
         const address    = tree.address    || '';
         const reason     = tree.reason     || '';
-        const color = ACTION_COLORS[actionType] || 'var(--primary)';
+        const color      = isPending ? '#ca8a04' : (ACTION_COLORS[actionType] || 'var(--primary)');
 
         const nameEl = $('#tree-name');
         if (nameEl) nameEl.textContent = address || tree.species?.commonName || 'Tree Action Report';
 
         const actionEl = $('#tree-action');
-        if (actionEl) actionEl.innerHTML = `<span class="action-badge action-${(actionType || 'unknown').toLowerCase()}" style="background:${color}">${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Unknown')}</span>`;
+        if (actionEl) {
+            if (isPending) {
+                actionEl.innerHTML = `<span class="action-badge action-pending" style="background:#ca8a04; color:#fff; font-weight:700;" title="Awaiting Superadmin Review">❓ Under Review (${escapeHtml(actionType || 'Report')})</span>`;
+            } else {
+                actionEl.innerHTML = `<span class="action-badge action-${(actionType || 'unknown').toLowerCase()}" style="background:${color}">${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Unknown')}</span>`;
+            }
+        }
 
         const priorityEl = $('#tree-priority');
         if (priorityEl) {
@@ -954,9 +964,11 @@
             ].join(' ').toLowerCase();
 
             const matchesQuery    = !query  || hay.includes(query);
-            // "Completed" filter matches operationalStatus; other action types match actionType
+            const isTreePending   = (tree.approvalStatus || 'Approved') === 'Pending';
             const matchesAction   = !action
-                || (action === 'Completed' ? tree.operationalStatus === 'Completed' : tree.actionType === action && tree.operationalStatus !== 'Completed');
+                || (action === 'Pending' ? isTreePending
+                    : action === 'Completed' ? tree.operationalStatus === 'Completed'
+                    : !isTreePending && tree.actionType === action && tree.operationalStatus !== 'Completed');
             const matchesLocation = !loc    || treeLocation === loc;
             const matches = matchesQuery && matchesAction && matchesLocation;
 
@@ -1790,7 +1802,13 @@
                 if (isAdmin()) {
                     try { await loadMyContributions(); } catch {}
                 }
-                try { await markers(); } catch {}
+                try {
+                    await loadDatabaseTrees();
+                    markers();
+                    if (map && !isNaN(lat) && !isNaN(lon)) {
+                        map.panTo([lat, lon], { animate: true, duration: 0.8 });
+                    }
+                } catch {}
                 const isApproved = result.approvalStatus === 'Approved';
                 showMapNotification(
                     'Report Submitted',

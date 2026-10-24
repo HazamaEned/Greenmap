@@ -166,6 +166,7 @@
                         <input type="text" id="map-species-search" placeholder="Search address or species">
                         <select id="map-status-filter">
                             <option value="">All Actions</option>
+                            <option value="Pending">❓ Under Review</option>
                             <option value="Trim">✂️ Trim</option>
                             <option value="Move">🚛 Move</option>
                             <option value="Remove">🪓 Remove</option>
@@ -191,6 +192,7 @@
                     <div class="map-legend" aria-label="Map legend">
                         <span title="Pasig City"><i class="legend-line city"></i><span class="legend-label">Pasig City</span></span>
                         <span title="Barangays"><i class="legend-line barangay"></i><span class="legend-label">Barangays</span></span>
+                        <span title="Under Review"><i class="legend-dot legend-pending" aria-hidden="true"></i><span class="legend-label">Under Review</span></span>
                         <span title="Trim"><i class="legend-dot legend-trim" aria-hidden="true"></i><span class="legend-label">Trim</span></span>
                         <span title="Move"><i class="legend-dot legend-move" aria-hidden="true"></i><span class="legend-label">Move</span></span>
                         <span title="Remove"><i class="legend-dot legend-remove" aria-hidden="true"></i><span class="legend-label">Remove</span></span>
@@ -344,6 +346,6 @@
             });
         });
     </script>
-    <script src="app.js?v=24"></script>
+    <script src="app.js?v=25"></script>
 </body>
 </html>

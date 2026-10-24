@@ -632,6 +632,7 @@ html[data-theme="dark"] .topbar-user .logout-btn:hover {
     font-style: normal;
 }
 
+.legend-pending   { background: #ca8a04; }
 .legend-trim     { background: #f59e0b; }
 .legend-move     { background: #3b82f6; }
 .legend-remove   { background: #ef4444; }

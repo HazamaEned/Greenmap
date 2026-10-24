@@ -1407,6 +1407,7 @@ html[data-theme="dark"] .map-notification-close {
     box-shadow: 0 2px 8px #0003;
     border: 2px solid #fff;
 }
+.marker-pending { background: #fef9c3; border-color: #ca8a04; }
 .marker-trim   { background: #fef3c7; border-color: #d97706; }
 .marker-move   { background: #dbeafe; border-color: #2563eb; }
 .marker-remove { background: #fee2e2; border-color: #dc2626; }
@@ -1481,6 +1482,7 @@ html[data-theme="dark"] .map-notification-close {
     border: 2px solid #fff;
     box-shadow: 0 0 0 1px #0003;
 }
+.legend-pending { background: #ca8a04; }
 .legend-trim   { background: #d97706; }
 .legend-move   { background: #2563eb; }
 .legend-remove { background: #dc2626; }
