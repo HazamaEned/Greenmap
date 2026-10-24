@@ -4,6 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/../../connection.php';
 require __DIR__ . '/../../sessions-helper.php';
+require __DIR__ . '/../../cloudinary-helper.php';
 sendCorsHeaders();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -240,17 +241,23 @@ try {
     }
 
     if ($hasPhotoUpload) {
-        $uploadDirectory = dirname(__DIR__, 4) . '/uploads/trees';
-        if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0775, true) && !is_dir($uploadDirectory)) {
-            throw new RuntimeException('Unable to create the tree photo directory.');
-        }
+        if (isCloudinaryConfigured()) {
+            // Upload directly to Cloudinary cloud storage
+            $treePhoto = uploadToCloudinary($photoUpload['tmp_name'], $photoUpload['name'] ?? 'tree.jpg');
+        } else {
+            // Fallback to local disk storage
+            $uploadDirectory = dirname(__DIR__, 4) . '/uploads/trees';
+            if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0775, true) && !is_dir($uploadDirectory)) {
+                throw new RuntimeException('Unable to create the tree photo directory.');
+            }
 
-        $photoFileName    = bin2hex(random_bytes(16)) . '.' . $photoExtension;
-        $uploadedPhotoPath = $uploadDirectory . '/' . $photoFileName;
-        if (!move_uploaded_file($photoUpload['tmp_name'], $uploadedPhotoPath)) {
-            throw new RuntimeException('Unable to store the tree photo.');
+            $photoFileName    = bin2hex(random_bytes(16)) . '.' . $photoExtension;
+            $uploadedPhotoPath = $uploadDirectory . '/' . $photoFileName;
+            if (!move_uploaded_file($photoUpload['tmp_name'], $uploadedPhotoPath)) {
+                throw new RuntimeException('Unable to store the tree photo.');
+            }
+            $treePhoto = 'uploads/trees/' . $photoFileName;
         }
-        $treePhoto = 'uploads/trees/' . $photoFileName;
     }
 
     $treeStatement = $conn->prepare(
