@@ -3,6 +3,12 @@
 
     const $ = (selector, root = document) => root.querySelector(selector);
     const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const escapeHtml = value => {
+        if (value === null || value === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(value);
+        return div.innerHTML;
+    };
     const config = window.GREENMAP_CONFIG || {};
     const pageExtension = config.pageExtension || 'html';
     const apiBaseUrl = config.apiBaseUrl || 'backend/server/api/';
@@ -66,6 +72,7 @@
     let treeLayer;
     let boundaryLayer;
     let userMarker;
+    let pendingLocationMarker = null;
     let startupLocationRequested = false;
     let databaseTrees = [];
     let databaseContributions = [];
@@ -125,7 +132,7 @@
         toast.timer = setTimeout(() => element.classList.add('hidden'), 3000);
     }
 
-    function showOutsidePasigWarning() {
+    function showOutsidePasigWarning(message = 'You are not inside of Pasig City') {
         const existing = $('#outside-pasig-warning');
         if (existing) {
             clearTimeout(existing._hideTimer);
@@ -138,7 +145,7 @@
         warning.setAttribute('role', 'alert');
         warning.innerHTML = `
             <span class="outside-pasig-icon" aria-hidden="true">&#9888;</span>
-            <span>You are not inside of Pasig City</span>
+            <span>${escapeHtml(message)}</span>
         `;
 
         document.body.appendChild(warning);
@@ -492,6 +499,28 @@
         return false;
     }
 
+    function isPointInsidePasig(lat, lon) {
+        if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) {
+            return false;
+        }
+        if (!barangayPolygons.length) {
+            return false;
+        }
+        return barangayPolygons.some(polygon =>
+            geometryContainsPoint(polygon.geometry, lat, lon)
+        );
+    }
+
+    async function ensureBoundaryData() {
+        if (barangayPolygons.length) return true;
+        try {
+            await loadBoundaryData();
+            return barangayPolygons.length > 0;
+        } catch {
+            return false;
+        }
+    }
+
     function barangayForPoint(lat, lon) {
         const match = barangayPolygons.find(polygon => geometryContainsPoint(polygon.geometry, lat, lon));
         return match ? match.name : 'Unmapped';
@@ -549,18 +578,52 @@
         setupMapFilters();
         requestStartupLocation();
 
-        map.on('click', event => {
+        map.on('click', async event => {
             const searchContainer = $('.map-search');
             if (searchContainer?.classList.contains('open')) {
                 searchContainer.classList.remove('open');
                 $('#map-search-toggle')?.setAttribute('aria-expanded', 'false');
             }
 
-            pendingLocation = {
-                lat: event.latlng.lat,
-                lon: event.latlng.lng
-            };
-            toast('Location pinned. Go to "Report a Tree" to use it.');
+            await ensureBoundaryData();
+
+            const lat = event.latlng.lat;
+            const lon = event.latlng.lng;
+
+            if (!isPointInsidePasig(lat, lon)) {
+                pendingLocation = null;
+                if (pendingLocationMarker) {
+                    map.removeLayer(pendingLocationMarker);
+                    pendingLocationMarker = null;
+                }
+                showOutsidePasigWarning('Out of bounds, try again. Selected location must be inside Pasig City.');
+                toast('Out of bounds, try again. Selected location is outside Pasig City.');
+                return;
+            }
+
+            pendingLocation = { lat, lon };
+
+            if (pendingLocationMarker) {
+                pendingLocationMarker.setLatLng([lat, lon]);
+            } else {
+                pendingLocationMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'greenmap-marker greenmap-pinned-marker',
+                        html: '<span aria-hidden="true">&#128205;</span>',
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 34],
+                        popupAnchor: [0, -32]
+                    }),
+                    title: 'Selected Tree Location'
+                }).addTo(map);
+            }
+
+            const brgy = barangayForPoint(lat, lon);
+            pendingLocationMarker.bindPopup(
+                `<strong>Pinned Tree Location</strong><br><em>Barangay ${escapeHtml(brgy)}</em><br><small>Go to &ldquo;Report a Tree&rdquo; to use this location.</small>`
+            ).openPopup();
+
+            toast(`Location pinned in Barangay ${brgy}. Go to "Report a Tree" to use it.`);
         });
     }
 
@@ -694,12 +757,10 @@
 
         // Check if the user is inside Pasig City and show a warning if not
         if (barangayPolygons.length) {
-            const insidePasig = barangayPolygons.some(polygon =>
-                geometryContainsPoint(polygon.geometry, coordinates[0], coordinates[1])
-            );
+            const insidePasig = isPointInsidePasig(coordinates[0], coordinates[1]);
             userInsidePasig = insidePasig;
             if (!insidePasig) {
-                showOutsidePasigWarning();
+                showOutsidePasigWarning('You are currently outside Pasig City.');
             }
         }
 
@@ -1266,12 +1327,97 @@
             });
         };
 
-        // Pre-fill coordinates from a map click, if available
-        if (pendingLocation) {
-            form.latitude.value  = pendingLocation.lat.toFixed(6);
-            form.longitude.value = pendingLocation.lon.toFixed(6);
-            pendingLocation = null;
+        // Coordinate inputs validation and boundary feedback
+        const latInput = form.latitude;
+        const lonInput = form.longitude;
+        const coordContainer = latInput?.closest('.field');
+        let feedbackEl = $('#location-boundary-status', form);
+        if (!feedbackEl && coordContainer) {
+            feedbackEl = document.createElement('div');
+            feedbackEl.id = 'location-boundary-status';
+            feedbackEl.className = 'location-boundary-status';
+            coordContainer.appendChild(feedbackEl);
         }
+
+        const validateLocationInputs = (showWarningOnInvalid = false) => {
+            if (!latInput || !lonInput) return false;
+            const rawLat = latInput.value.trim();
+            const rawLon = lonInput.value.trim();
+
+            if (!rawLat || !rawLon) {
+                latInput.setCustomValidity('');
+                lonInput.setCustomValidity('');
+                if (feedbackEl) {
+                    feedbackEl.textContent = '';
+                    feedbackEl.className = 'location-boundary-status';
+                }
+                return false;
+            }
+
+            const lat = Number(rawLat);
+            const lon = Number(rawLon);
+
+            if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                latInput.setCustomValidity('Please enter valid coordinates.');
+                if (feedbackEl) {
+                    feedbackEl.textContent = 'Please enter valid numerical coordinates.';
+                    feedbackEl.className = 'location-boundary-status invalid';
+                }
+                return false;
+            }
+
+            if (!barangayPolygons.length) {
+                return true;
+            }
+
+            const inside = isPointInsidePasig(lat, lon);
+            if (!inside) {
+                const msg = 'Out of bounds, try again. Location must be inside Pasig City border.';
+                latInput.setCustomValidity(msg);
+                lonInput.setCustomValidity(msg);
+                if (feedbackEl) {
+                    feedbackEl.textContent = '⚠ ' + msg;
+                    feedbackEl.className = 'location-boundary-status invalid';
+                }
+                if (showWarningOnInvalid) {
+                    showOutsidePasigWarning('Out of bounds, try again. Selected location is outside Pasig City.');
+                    toast('Out of bounds, try again. Coordinates must be inside Pasig City.');
+                }
+                return false;
+            }
+
+            latInput.setCustomValidity('');
+            lonInput.setCustomValidity('');
+            const brgy = barangayForPoint(lat, lon);
+            if (feedbackEl) {
+                feedbackEl.textContent = `✓ Inside Pasig City (Barangay ${brgy})`;
+                feedbackEl.className = 'location-boundary-status valid';
+            }
+            return true;
+        };
+
+        latInput?.addEventListener('input', () => validateLocationInputs(false));
+        lonInput?.addEventListener('input', () => validateLocationInputs(false));
+        latInput?.addEventListener('blur', () => {
+            if (latInput.value && lonInput.value) validateLocationInputs(true);
+        });
+        lonInput?.addEventListener('blur', () => {
+            if (latInput.value && lonInput.value) validateLocationInputs(true);
+        });
+
+        // Pre-fill coordinates from a map click, if available and inside Pasig
+        if (pendingLocation) {
+            if (isPointInsidePasig(pendingLocation.lat, pendingLocation.lon)) {
+                form.latitude.value  = pendingLocation.lat.toFixed(6);
+                form.longitude.value = pendingLocation.lon.toFixed(6);
+            }
+            pendingLocation = null;
+            if (pendingLocationMarker && map) {
+                map.removeLayer(pendingLocationMarker);
+                pendingLocationMarker = null;
+            }
+        }
+        validateLocationInputs(false);
 
         // Populate species dropdown (optional — "" = no species)
         try {
@@ -1304,21 +1450,43 @@
         $('#cancel-contribution')?.addEventListener('click', cancel);
         $('#cancel-contribution-bottom')?.addEventListener('click', cancel);
 
-        $('#use-location')?.addEventListener('click', () => locate(position => {
-            form.latitude.value  = position.coords.latitude.toFixed(6);
-            form.longitude.value = position.coords.longitude.toFixed(6);
+        $('#use-location')?.addEventListener('click', () => locate(async position => {
+            await ensureBoundaryData();
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            if (!isPointInsidePasig(lat, lon)) {
+                form.latitude.value = '';
+                form.longitude.value = '';
+                validateLocationInputs(true);
+                showOutsidePasigWarning('Out of bounds, try again. Your current GPS location is outside Pasig City.');
+                toast('Out of bounds, try again. GPS location is outside Pasig City.');
+                return;
+            }
+            form.latitude.value  = lat.toFixed(6);
+            form.longitude.value = lon.toFixed(6);
+            validateLocationInputs(false);
+            const brgy = barangayForPoint(lat, lon);
+            toast(`GPS location set in Barangay ${brgy}.`);
         }));
 
         form.onsubmit = async event => {
             event.preventDefault();
-            if (!form.reportValidity()) return;
 
-            // Block submission if the user's GPS location is outside Pasig City
-            if (userInsidePasig === false) {
-                showOutsidePasigWarning();
-                toast('You must be inside Pasig City to submit a tree report.');
+            await ensureBoundaryData();
+
+            const lat = Number(form.latitude.value);
+            const lon = Number(form.longitude.value);
+
+            const isInside = isPointInsidePasig(lat, lon);
+            if (isNaN(lat) || isNaN(lon) || !isInside) {
+                showOutsidePasigWarning('Out of bounds, try again. Tree location must be inside Pasig City.');
+                toast('Out of bounds, try again. Selected location is outside Pasig City.');
+                validateLocationInputs(true);
+                form.latitude.focus();
                 return;
             }
+
+            if (!form.reportValidity()) return;
 
             const data         = new FormData(form);
             const submitButton = form.querySelector('[type="submit"]');
@@ -1396,11 +1564,7 @@
         }
     }
 
-    const escapeHtml = value => {
-        const div = document.createElement('div');
-        div.textContent = value;
-        return div.innerHTML;
-    };
+
 
     async function contributions() {
         const body = $('#contributions-body');

@@ -136,6 +136,15 @@ if (
     exit;
 }
 
+if (!isLocationInsidePasig((float) $latitude, (float) $longitude)) {
+    http_response_code(422);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Out of bounds, try again. Tree location must be inside Pasig City border.'
+    ]);
+    exit;
+}
+
 $description = $description !== '' ? $description : null;
 $reason      = $reason  !== '' ? $reason  : null;
 $address     = $address !== '' ? $address : null;
@@ -336,4 +345,82 @@ try {
     }
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Unable to save the tree action report.']);
+}
+
+
+/**
+ * Validates that the given coordinates fall within the Pasig City boundary polygons.
+ */
+function isLocationInsidePasig(float $latitude, float $longitude): bool {
+    static $boundaryFeatures = null;
+
+    if ($boundaryFeatures === null) {
+        $cacheFile = dirname(__DIR__, 2) . '/cache/pasig-boundaries-v2.json';
+        if (!is_file($cacheFile)) {
+            $legacy = dirname(__DIR__, 2) . '/cache/pasig-boundaries.json';
+            $cacheFile = is_file($legacy) ? $legacy : null;
+        }
+
+        if ($cacheFile !== null) {
+            $raw = file_get_contents($cacheFile);
+            $data = is_string($raw) ? json_decode($raw, true) : null;
+            $boundaryFeatures = $data['barangays']['features'] ?? [];
+        } else {
+            $boundaryFeatures = [];
+        }
+    }
+
+    if (empty($boundaryFeatures)) {
+        return true;
+    }
+
+    foreach ($boundaryFeatures as $feature) {
+        $geometry = $feature['geometry'] ?? null;
+        if (!$geometry) {
+            continue;
+        }
+
+        if (($geometry['type'] ?? '') === 'Polygon') {
+            if (pointInPolygonGeo($latitude, $longitude, $geometry['coordinates'] ?? [])) {
+                return true;
+            }
+        } elseif (($geometry['type'] ?? '') === 'MultiPolygon') {
+            foreach ($geometry['coordinates'] ?? [] as $polygon) {
+                if (pointInPolygonGeo($latitude, $longitude, $polygon)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+function pointInRingGeo(float $lat, float $lon, array $ring): bool {
+    $inside = false;
+    $count = count($ring);
+    for ($i = 0, $j = $count - 1; $i < $count; $j = $i++) {
+        $lonI = (float) $ring[$i][0];
+        $latI = (float) $ring[$i][1];
+        $lonJ = (float) $ring[$j][0];
+        $latJ = (float) $ring[$j][1];
+        $intersects = (($lonI > $lon) !== ($lonJ > $lon))
+            && ($lat < ($latJ - latI) * ($lon - lonI) / ($lonJ - $lonI) + $latI);
+        if ($intersects) {
+            $inside = !$inside;
+        }
+    }
+    return $inside;
+}
+
+function pointInPolygonGeo(float $lat, float $lon, array $rings): bool {
+    if (empty($rings) || !pointInRingGeo($lat, $lon, $rings[0])) {
+        return false;
+    }
+    for ($k = 1, $numRings = count($rings); $k < $numRings; $k++) {
+        if (pointInRingGeo($lat, $lon, $rings[$k])) {
+            return false;
+        }
+    }
+    return true;
 }

@@ -244,7 +244,8 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     overflow: hidden;
     color: var(--ink);
     text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: min(90vw, 560px);
+    text-align: center;
 }
 
 .bar-chart-track {
@@ -705,7 +706,8 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     max-width: 35ch;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: min(90vw, 560px);
+    text-align: center;
     font-size: 13px;
     color: var(--muted);
 }
@@ -815,7 +817,8 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     margin-top: 3px;
     color: var(--muted);
     text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: min(90vw, 560px);
+    text-align: center;
 }
 
 .role-badge {
@@ -1203,7 +1206,8 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     opacity: 0;
     max-width: 0;
     pointer-events: none;
-    white-space: nowrap;
+    max-width: min(90vw, 560px);
+    text-align: center;
     overflow: hidden;
     transform: translateX(12px);
     transition: opacity 160ms ease,
@@ -1842,7 +1846,8 @@ html[data-theme="dark"] .map-notification-close {
     color: var(--muted);
     font-size: 12px;
     font-weight: 800;
-    white-space: nowrap;
+    max-width: min(90vw, 560px);
+    text-align: center;
     border: 1px solid var(--line);
 }
 
@@ -1907,7 +1912,8 @@ html[data-theme="dark"] .map-notification-close {
     box-shadow: 0 8px 28px #0000004d;
     font-size: 15px;
     font-weight: 600;
-    white-space: nowrap;
+    max-width: min(90vw, 560px);
+    text-align: center;
     pointer-events: none;
     transform: translate(-50%, 20px);
     opacity: 0;
@@ -1927,4 +1933,33 @@ html[data-theme="dark"] .map-notification-close {
 html[data-theme="dark"] .outside-pasig-warning {
     background: #991b1b;
     box-shadow: 0 8px 28px #00000080;
+}
+
+
+/* ── Location boundary status feedback in tree form ────────────────────── */
+.location-boundary-status {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.location-boundary-status.valid {
+    color: #16a34a;
+}
+
+.location-boundary-status.invalid {
+    color: #dc2626;
+}
+
+html[data-theme="dark"] .location-boundary-status.valid {
+    color: #4ade80;
+}
+
+html[data-theme="dark"] .location-boundary-status.invalid {
+    color: #f87171;
+}
+
+.greenmap-pinned-marker span {
+    font-size: 32px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
