@@ -23,7 +23,7 @@
                     <select name="action_type" id="action-type-select" required>
                         <option value="">Choose one…</option>
                         <option value="Trim">✂️ Trim — branches are overgrown or hazardous</option>
-                        <option value="Move">🚛 Move / Relocate — tree must be transplanted</option>
+                        <option value="Move" data-admin-only>🚛 Move / Relocate — tree must be transplanted</option>
                         <option value="Remove">🪓 Remove — tree is dead, diseased, or dangerous</option>
                     </select>
                 </label>
@@ -54,10 +54,20 @@
                 </div>
             </div>
 
-            <label class="field">
-                Street address *
-                <input name="address" type="text" maxlength="255" placeholder="e.g. In front of 123 Shaw Blvd, Barangay Kapitolyo" required>
-            </label>
+            <div class="form-grid two-column-grid">
+                <label class="field">
+                    Area type *
+                    <select name="area_type" id="area-type-select" required>
+                        <option value="Public">Public area (street, sidewalk, park, public space)</option>
+                        <option value="Private">Private area (residential lot, private compound, subdivision)</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    Street address *
+                    <input name="address" type="text" maxlength="255" placeholder="e.g. In front of 123 Shaw Blvd, Barangay Kapitolyo" required>
+                </label>
+            </div>
 
             <div class="field">
                 <span>GPS coordinates *</span>

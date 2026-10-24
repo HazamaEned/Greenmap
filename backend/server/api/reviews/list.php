@@ -24,6 +24,13 @@ if (!in_array($status, $allowedStatuses, true)) {
 }
 
 try {
+    $hasAreaType = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'area_type'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasAreaType = true;
+    }
+    $areaTypeSelect = $hasAreaType ? 'tree_submissions.area_type,' : "'Public' AS area_type,";
+
     $sql = 'SELECT
                 tree_submissions.submission_id,
                 tree_submissions.tree_id,
@@ -37,6 +44,7 @@ try {
                 tree_submissions.priority,
                 tree_submissions.reason,
                 tree_submissions.address,
+                ' . $areaTypeSelect . '
                 tree_submissions.reporter_name,
                 tree_submissions.reporter_contact,
                 tree_data.tree_photo,
@@ -80,6 +88,7 @@ try {
             'priority'          => $row['priority']           ?? null,
             'reason'            => $row['reason']             ?? null,
             'address'           => $row['address']            ?? null,
+            'areaType'          => $row['area_type']          ?? 'Public',
             'reporterName'      => $row['reporter_name']      ?? null,
             'reporterContact'   => $row['reporter_contact']   ?? null,
             'operationalStatus' => $row['operational_status'] ?? 'Reported',

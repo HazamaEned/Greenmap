@@ -374,6 +374,7 @@
         // New action fields
         if (tree.actionType) body.append('action_type', tree.actionType);
         if (tree.priority)   body.append('priority', tree.priority);
+        if (tree.areaType)   body.append('area_type', tree.areaType);
         if (tree.reason)     body.append('reason', tree.reason);
         if (tree.address)    body.append('address', tree.address);
         // Reporter contact (optional, public form)
@@ -644,7 +645,7 @@
                 .bindPopup(`
                     <strong>${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Tree')}</strong>${escapeHtml(priorityTag)}<br>
                     <em>${escapeHtml(address || location)}</em><br>
-                    <small>${escapeHtml(tree.species?.commonName || 'Unknown species')} &middot; ${escapeHtml(tree.status || '')}</small>
+                    <small>${escapeHtml(tree.species?.commonName || 'Unknown species')} &middot; ${escapeHtml(tree.status || '')} &middot; ${escapeHtml((tree.areaType || 'Public') + ' Area')}</small>
                 `)
                 .on('click', () => {
                     if (map) {
@@ -772,6 +773,12 @@
 
         const locationEl = $('#tree-location');
         if (locationEl) locationEl.textContent = `Barangay: ${location || locationForTree(tree)}`;
+
+        const areaEl = $('#tree-area');
+        if (areaEl) {
+            const area = tree.areaType || 'Public';
+            areaEl.textContent = `Area: ${area} Property`;
+        }
 
         const addressEl = $('#tree-address');
         if (addressEl) addressEl.textContent = `Address: ${address || '–'}`;
@@ -1205,11 +1212,12 @@
 
         const records = recordsForBarangay(trees());
         const rows = [
-            ['Report ID', 'Action Type', 'Priority', 'Address', 'Reason', 'Species', 'Condition', 'Barangay', 'Latitude', 'Longitude', 'Reported At', 'Reported By'],
+            ['Report ID', 'Action Type', 'Priority', 'Area Type', 'Address', 'Reason', 'Species', 'Condition', 'Barangay', 'Latitude', 'Longitude', 'Reported At', 'Reported By'],
             ...records.map(tree => [
                 tree.treeId,
                 tree.actionType || '',
                 tree.priority   || '',
+                tree.areaType   || 'Public',
                 tree.address    || '',
                 tree.reason     || '',
                 tree.species?.commonName || '',
@@ -1238,6 +1246,13 @@
     async function addTree() {
         const form = $('#add-tree-form');
         if (!form) return;
+
+        // Restrict Move/Relocate to staff (admin or superadmin)
+        const actionTypeSelect = $('#action-type-select', form);
+        if (actionTypeSelect && !isAdmin()) {
+            const moveOption = actionTypeSelect.querySelector('option[value="Move"]');
+            if (moveOption) moveOption.remove();
+        }
 
         const speciesSelect  = $('#species-select', form);
         const newSpeciesFields = $('#new-species-fields', form);
@@ -1315,6 +1330,7 @@
                     // Required action fields
                     actionType: data.get('action_type'),
                     priority:   data.get('priority'),
+                    areaType:   data.get('area_type') || 'Public',
                     reason:     data.get('reason')?.trim(),
                     address:    data.get('address')?.trim(),
                     // Reporter contact (optional, public form)
@@ -1418,6 +1434,7 @@
                     const actionType = tree.actionType || '–';
                     const priority   = tree.priority   || '–';
                     const address    = tree.address    || (tree.latitude ? `${tree.latitude.toFixed(4)}, ${tree.longitude.toFixed(4)}` : '–');
+                    const areaBadge  = tree.areaType === 'Private' ? '<br><small><span class="area-badge area-private">Private Area</span></small>' : '<br><small><span class="area-badge area-public">Public Area</span></small>';
                     const emoji      = ACTION_ICON_EMOJI[actionType] || '🌿';
                     const submitted  = tree.submittedAt
                         ? new Date(tree.submittedAt.replace(' ', 'T')).toLocaleString()
@@ -1426,7 +1443,7 @@
                     <tr>
                         <td><strong>${escapeHtml(emoji)} ${escapeHtml(actionType)}</strong></td>
                         <td><span class="priority-badge priority-${priority.toLowerCase()}">${escapeHtml(priority)}</span></td>
-                        <td title="${escapeHtml(tree.reason || '')}">${escapeHtml(address)}</td>
+                        <td title="${escapeHtml(tree.reason || '')}">${escapeHtml(address)}${areaBadge}</td>
                         <td>${escapeHtml(submitted)}</td>
                         <td><span class="status-badge status-${tree.approvalStatus.toLowerCase()}">${escapeHtml(tree.approvalStatus)}</span></td>
                         <td>
@@ -1471,6 +1488,7 @@
                         const actionType      = item.actionType || item.status || '–';
                         const priority        = item.priority   || '–';
                         const address         = item.address    || `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`;
+                        const areaBadge       = item.areaType === 'Private' ? '<br><small><span class="area-badge area-private">Private Area</span></small>' : '<br><small><span class="area-badge area-public">Public Area</span></small>';
                         const reason          = item.reason     || '–';
                         const emoji           = ACTION_ICON_EMOJI[actionType] || '🌿';
                         const opStatus        = item.operationalStatus || 'Reported';
@@ -1507,7 +1525,7 @@
                                     ${reporterContact}
                                 </td>
                                 <td title="${escapeHtml(reason)}">${escapeHtml(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}</td>
-                                <td>${escapeHtml(address)}</td>
+                                <td>${escapeHtml(address)}${areaBadge}</td>
                                 <td>${opStatusBadge}</td>
                                 <td><span class="status-badge status-${item.approvalStatus.toLowerCase()}">${escapeHtml(item.approvalStatus)}</span></td>
                                 <td class="review-actions">${actions}</td>

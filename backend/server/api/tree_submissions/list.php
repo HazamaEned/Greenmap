@@ -30,6 +30,13 @@ $speciesId = isset($_GET['species_id'])
     : null;
 
 try {
+    $hasAreaType = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'area_type'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasAreaType = true;
+    }
+    $areaTypeSelect = $hasAreaType ? 'ts.area_type,' : "'Public' AS area_type,";
+
     $sql = "SELECT
             td.tree_id,
             td.tree_photo,
@@ -41,6 +48,7 @@ try {
             sp.origin_status,
             ts.latitude,
             ts.longitude,
+            " . $areaTypeSelect . "
             ts.submitted_at
         FROM tree_data td
         INNER JOIN species sp ON sp.species_id = td.species_id
@@ -92,7 +100,8 @@ try {
                 'originStatus' => $row['origin_status']
             ],
             'latitude' => (float) $row['latitude'],
-            'longitude' => (float) $row['longitude']
+            'longitude' => (float) $row['longitude'],
+            'areaType' => $row['area_type'] ?? 'Public'
         ];
     }
 

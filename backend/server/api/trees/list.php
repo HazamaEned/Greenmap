@@ -7,6 +7,13 @@ require __DIR__ . '/../../sessions-helper.php';
 sendCorsHeaders();
 
 try {
+    $hasAreaType = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'area_type'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasAreaType = true;
+    }
+    $areaTypeSelect = $hasAreaType ? 'tree_submissions.area_type,' : "'Public' AS area_type,";
+
     $sql = '
     SELECT
         tree_data.tree_id,
@@ -24,6 +31,7 @@ try {
         tree_submissions.priority,
         tree_submissions.reason,
         tree_submissions.address,
+        ' . $areaTypeSelect . '
         tree_submissions.operational_status,
         users.name AS added_by
     FROM tree_data
@@ -57,6 +65,7 @@ try {
             'priority'          => $row['priority']            ?? null,
             'reason'            => $row['reason']              ?? null,
             'address'           => $row['address']             ?? null,
+            'areaType'          => $row['area_type']           ?? 'Public',
             'operationalStatus' => $row['operational_status']  ?? 'Reported',
             'species'    => [
                 'speciesId'     => (int) $row['species_id'],

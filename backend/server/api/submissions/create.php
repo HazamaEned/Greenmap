@@ -32,6 +32,10 @@ $actionType = trim((string) ($data['action_type'] ?? ''));
 $priority   = trim((string) ($data['priority']   ?? 'Moderate'));
 $reason     = trim((string) ($data['reason']     ?? ''));
 $address    = trim((string) ($data['address']    ?? ''));
+$areaType   = trim((string) ($data['area_type']   ?? 'Public'));
+if (!in_array($areaType, ['Public', 'Private'], true)) {
+    $areaType = 'Public';
+}
 
 // ── Reporter contact (optional, public form) ─────────────────────────────
 $reporterName    = trim((string) ($data['reporter_name']    ?? ''));
@@ -86,7 +90,19 @@ if ($hasPhotoUpload) {
     }
 }
 
-$allowedActionTypes = ['Trim', 'Move', 'Remove'];
+$isAdminOrSuperadmin = $user !== null && in_array($user['role'] ?? '', ['admin', 'superadmin'], true);
+
+// Guests are only permitted to request trimming or removal; moving/relocating requires admin authority
+if ($actionType === 'Move' && !$isAdminOrSuperadmin) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Moving or relocating a tree can only be requested by administrators.'
+    ]);
+    exit;
+}
+
+$allowedActionTypes = $isAdminOrSuperadmin ? ['Trim', 'Move', 'Remove'] : ['Trim', 'Remove'];
 $allowedPriorities  = ['Urgent', 'High', 'Moderate', 'Low'];
 $allowedOrigins     = ['Native', 'Introduced', 'Unknown'];
 $allowedStatuses    = ['Healthy', 'Diseased', 'Dead', 'Removed'];
@@ -198,49 +214,105 @@ try {
     $isSuperadmin   = ($user['role'] ?? '') === 'superadmin';
     $approvalStatus = $isSuperadmin ? 'Approved' : 'Pending';
 
+    // Check if the area_type column exists in tree_submissions
+    $hasAreaType = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'area_type'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasAreaType = true;
+    }
+
     if ($isSuperadmin) {
-        $submissionStatement = $conn->prepare(
-            'INSERT INTO tree_submissions (
-                tree_id, submitted_by, latitude, longitude,
-                action_type, priority, reason, address,
-                reporter_name, reporter_contact,
-                approval_status, reviewed_by, reviewed_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
-        );
-        $submissionStatement->bind_param(
-            'iiddssssssssi',
-            $treeId,
-            $submittedBy,
-            $latitude,
-            $longitude,
-            $actionType,
-            $priority,
-            $reason,
-            $address,
-            $reporterName,
-            $reporterContact,
-            $approvalStatus,
-            $submittedBy
-        );
+        if ($hasAreaType) {
+            $submissionStatement = $conn->prepare(
+                'INSERT INTO tree_submissions (
+                    tree_id, submitted_by, latitude, longitude,
+                    action_type, priority, reason, address, area_type,
+                    reporter_name, reporter_contact,
+                    approval_status, reviewed_by, reviewed_at
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+            );
+            $submissionStatement->bind_param(
+                'iiddsssssssssi',
+                $treeId,
+                $submittedBy,
+                $latitude,
+                $longitude,
+                $actionType,
+                $priority,
+                $reason,
+                $address,
+                $areaType,
+                $reporterName,
+                $reporterContact,
+                $approvalStatus,
+                $submittedBy
+            );
+        } else {
+            $submissionStatement = $conn->prepare(
+                'INSERT INTO tree_submissions (
+                    tree_id, submitted_by, latitude, longitude,
+                    action_type, priority, reason, address,
+                    reporter_name, reporter_contact,
+                    approval_status, reviewed_by, reviewed_at
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+            );
+            $submissionStatement->bind_param(
+                'iiddsssssssi',
+                $treeId,
+                $submittedBy,
+                $latitude,
+                $longitude,
+                $actionType,
+                $priority,
+                $reason,
+                $address,
+                $reporterName,
+                $reporterContact,
+                $approvalStatus,
+                $submittedBy
+            );
+        }
     } else {
-        $submissionStatement = $conn->prepare(
-            'INSERT INTO tree_submissions
-                (tree_id, submitted_by, latitude, longitude, action_type, priority, reason, address, reporter_name, reporter_contact)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        $submissionStatement->bind_param(
-            'iiddssssss',
-            $treeId,
-            $submittedBy,
-            $latitude,
-            $longitude,
-            $actionType,
-            $priority,
-            $reason,
-            $address,
-            $reporterName,
-            $reporterContact
-        );
+        if ($hasAreaType) {
+            $submissionStatement = $conn->prepare(
+                'INSERT INTO tree_submissions
+                    (tree_id, submitted_by, latitude, longitude, action_type, priority, reason, address, area_type, reporter_name, reporter_contact)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $submissionStatement->bind_param(
+                'iiddsssssss',
+                $treeId,
+                $submittedBy,
+                $latitude,
+                $longitude,
+                $actionType,
+                $priority,
+                $reason,
+                $address,
+                $areaType,
+                $reporterName,
+                $reporterContact
+            );
+        } else {
+            $submissionStatement = $conn->prepare(
+                'INSERT INTO tree_submissions
+                    (tree_id, submitted_by, latitude, longitude, action_type, priority, reason, address, reporter_name, reporter_contact)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $submissionStatement->bind_param(
+                'iiddssssss',
+                $treeId,
+                $submittedBy,
+                $latitude,
+                $longitude,
+                $actionType,
+                $priority,
+                $reason,
+                $address,
+                $reporterName,
+                $reporterContact
+            );
+        }
     }
     $submissionStatement->execute();
     $submissionId = $conn->insert_id;

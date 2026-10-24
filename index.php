@@ -152,14 +152,17 @@
                             <img id="tree-img" src="trees/mango.jpg" alt="Tree">
                         </button>
                         <div class="info">
-                            <h3 id="tree-name">Tree Details</h3>
-                            <p id="tree-species">Species: -</p>
-                            <p id="tree-status">Status: -</p>
-                            <p id="tree-location">Barangay: -</p>
-                            <p id="tree-planted">Planted: -</p>
-                            <p id="tree-addedby">Added by: -</p>
+                            <h3 id="tree-name">Tree Action Report</h3>
+                            <p id="tree-action"><span class="action-badge">–</span></p>
+                            <p id="tree-priority">Priority: –</p>
+                            <p id="tree-status">Condition: –</p>
+                            <p id="tree-location">Barangay: –</p>
+                            <p id="tree-area">Area: –</p>
+                            <p id="tree-address">Address: –</p>
+                            <p id="tree-reason">Reason: –</p>
+                            <p id="tree-addedby">Reported by: –</p>
                             <div class="tree-popup-actions">
-                                <a id="view-streetview" class="primary" href="https://www.instantstreetview.com/" target="_blank" rel="noopener noreferrer">InstantStreetView</a>
+                                <a id="view-streetview" class="primary" href="https://www.instantstreetview.com/" target="_blank" rel="noopener noreferrer">Street View</a>
                                 <button id="close-tree-popup" type="button">Close</button>
                             </div>
                         </div>
