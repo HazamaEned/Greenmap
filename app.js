@@ -82,6 +82,20 @@
     let locationSource = 'Not requested';
     let userInsidePasig = null; // null = unknown, true = inside, false = outside
     let selectedTreePhotoUrl = '';
+    let activeCameraStream = null;
+
+    function resolvePhotoUrl(photo) {
+        if (!photo) return '';
+        if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:') || photo.startsWith('blob:')) {
+            return photo;
+        }
+        const cleanPath = photo.replace(/^\/+/, '');
+        if (apiBaseUrl.startsWith('http://') || apiBaseUrl.startsWith('https://')) {
+            const rootUrl = apiBaseUrl.replace(/backend\/server\/api\/?$/, '');
+            return `${rootUrl}${cleanPath}`;
+        }
+        return cleanPath;
+    }
     let dashboardBarangayFilter = '';
     let currentPageState = {};
 
@@ -397,7 +411,7 @@
         if (tree.age !== null && tree.age !== undefined) body.append('tree_age', tree.age);
         body.append('latitude', tree.lat);
         body.append('longitude', tree.lon);
-        if (tree.photo) body.append('tree_photo', tree.photo);
+        if (tree.photo) body.append('tree_photo', tree.photo, tree.photo.name || 'tree_photo.jpg');
 
         return apiRequest('submissions/create.php', {
             method: 'POST',
@@ -797,7 +811,7 @@
     function showTree(tree, location) {
         const image = $('#tree-img');
         const trigger = $('#tree-photo-trigger');
-        selectedTreePhotoUrl = tree.photo || '';
+        selectedTreePhotoUrl = resolvePhotoUrl(tree.photo);
 
         if (selectedTreePhotoUrl) {
             image.src = selectedTreePhotoUrl;
@@ -866,7 +880,7 @@
         if (!source || !fullscreenImage || !dialog) return;
 
         fullscreenImage.onerror = null;
-        fullscreenImage.src = selectedTreePhotoUrl || source.src;
+        fullscreenImage.src = resolvePhotoUrl(selectedTreePhotoUrl || source.src);
         fullscreenImage.alt = source.alt || 'Tree photo';
         if (fullscreenImage.src) {
             dialog.showModal();
@@ -1040,6 +1054,10 @@
     // --- Navigation ------------------------------------------------------------
 
     async function navigate(page, state = {}) {
+        if (activeCameraStream) {
+            activeCameraStream.getTracks().forEach(t => t.stop());
+            activeCameraStream = null;
+        }
         if (page === 'contributions' && !isAdmin()) {
             toast('Admin login is required to open that page.')
             return;
@@ -1437,8 +1455,225 @@
         speciesSelect?.addEventListener('change', toggleNewSpecies);
         toggleNewSpecies();
 
+        // Photo upload & device camera handling
+        const treePhotoFileInput = $('#tree-photo-input', form);
+        const nativeCameraInput  = $('#tree-photo-native-camera', form);
+        const openCameraBtn      = $('#open-camera-btn', form);
+        const photoPreviewCard   = $('#photo-preview-card', form);
+        const photoPreviewImg    = $('#photo-preview-img', form);
+        const photoPreviewName   = $('#photo-preview-name', form);
+        const photoPreviewBadge  = $('#photo-preview-badge', form);
+        const photoPreviewSize  = $('#photo-preview-size', form);
+        const removePhotoBtn     = $('#remove-photo-btn', form);
+
+        const cameraModal        = $('#camera-modal');
+        const cameraVideoFeed    = $('#camera-video-feed');
+        const cameraCanvas       = $('#camera-snapshot-canvas');
+        const cameraLoading      = $('#camera-loading-indicator');
+        const cameraError        = $('#camera-error-message');
+        const cameraErrorText    = $('#camera-error-text');
+        const cameraFallbackBtn  = $('#camera-system-fallback-btn');
+        const switchCameraBtn    = $('#switch-camera-lens-btn');
+        const takeSnapshotBtn    = $('#take-snapshot-btn');
+        const closeCameraModal   = $('#close-camera-modal');
+        const cancelCameraBtn    = $('#cancel-camera-capture');
+
+        let selectedPhotoFile = null;
+        let previewObjectUrl  = null;
+        let currentFacingMode = 'environment';
+
+        const formatFileSize = bytes => {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+        };
+
+        const updatePhotoPreview = (file, badgeText = 'Uploaded') => {
+            if (previewObjectUrl) {
+                URL.revokeObjectURL(previewObjectUrl);
+                previewObjectUrl = null;
+            }
+            if (!file) {
+                if (photoPreviewCard) photoPreviewCard.classList.add('hidden');
+                if (photoPreviewImg) photoPreviewImg.src = '';
+                return;
+            }
+            previewObjectUrl = URL.createObjectURL(file);
+            if (photoPreviewImg) photoPreviewImg.src = previewObjectUrl;
+            if (photoPreviewName) photoPreviewName.textContent = file.name || 'tree-photo.jpg';
+            if (photoPreviewBadge) photoPreviewBadge.textContent = badgeText;
+            if (photoPreviewSize) photoPreviewSize.textContent = formatFileSize(file.size);
+            if (photoPreviewCard) photoPreviewCard.classList.remove('hidden');
+        };
+
+        const clearPhoto = () => {
+            selectedPhotoFile = null;
+            if (treePhotoFileInput) treePhotoFileInput.value = '';
+            if (nativeCameraInput)  nativeCameraInput.value = '';
+            updatePhotoPreview(null);
+        };
+
+        const stopCamera = () => {
+            if (activeCameraStream) {
+                activeCameraStream.getTracks().forEach(track => track.stop());
+                activeCameraStream = null;
+            }
+            if (cameraVideoFeed) {
+                cameraVideoFeed.srcObject = null;
+            }
+            if (cameraModal && cameraModal.open) {
+                cameraModal.close();
+            }
+        };
+
+        const startCamera = async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                if (nativeCameraInput) nativeCameraInput.click();
+                return;
+            }
+
+            if (!cameraModal) {
+                if (nativeCameraInput) nativeCameraInput.click();
+                return;
+            }
+
+            try {
+                cameraModal.showModal();
+            } catch {
+                if (nativeCameraInput) nativeCameraInput.click();
+                return;
+            }
+
+            if (cameraLoading) cameraLoading.classList.remove('hidden');
+            if (cameraError)   cameraError.classList.add('hidden');
+
+            try {
+                if (activeCameraStream) {
+                    activeCameraStream.getTracks().forEach(t => t.stop());
+                    activeCameraStream = null;
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: currentFacingMode },
+                        width:  { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                };
+
+                activeCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                if (cameraVideoFeed) {
+                    cameraVideoFeed.srcObject = activeCameraStream;
+                    await cameraVideoFeed.play();
+                }
+                if (cameraLoading) cameraLoading.classList.add('hidden');
+
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                    if (switchCameraBtn) {
+                        switchCameraBtn.style.display = videoDevices.length > 1 ? '' : 'none';
+                    }
+                } catch {
+                    if (switchCameraBtn) switchCameraBtn.style.display = 'none';
+                }
+            } catch (error) {
+                if (cameraLoading) cameraLoading.classList.add('hidden');
+                if (cameraError) {
+                    cameraError.classList.remove('hidden');
+                    if (cameraErrorText) {
+                        cameraErrorText.textContent = error.name === 'NotAllowedError'
+                            ? 'Camera permission denied. Allow camera access or use device camera below.'
+                            : 'Camera could not be accessed. Use device camera below.';
+                    }
+                }
+            }
+        };
+
+        openCameraBtn?.addEventListener('click', startCamera);
+
+        cameraFallbackBtn?.addEventListener('click', () => {
+            stopCamera();
+            if (nativeCameraInput) nativeCameraInput.click();
+        });
+
+        switchCameraBtn?.addEventListener('click', async () => {
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            await startCamera();
+        });
+
+        takeSnapshotBtn?.addEventListener('click', () => {
+            if (!cameraVideoFeed || !activeCameraStream) return;
+
+            const width  = cameraVideoFeed.videoWidth  || 1280;
+            const height = cameraVideoFeed.videoHeight || 720;
+            if (!width || !height) return;
+
+            const canvas = cameraCanvas || document.createElement('canvas');
+            canvas.width  = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(cameraVideoFeed, 0, 0, width, height);
+
+            canvas.toBlob(blob => {
+                if (!blob) {
+                    toast('Could not capture photo. Please try again.');
+                    return;
+                }
+                const photoName = `tree_camera_${Date.now()}.jpg`;
+                const file = new File([blob], photoName, { type: 'image/jpeg', lastModified: Date.now() });
+                selectedPhotoFile = file;
+
+                try {
+                    if (window.DataTransfer && treePhotoFileInput) {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        treePhotoFileInput.files = dt.files;
+                    }
+                } catch {}
+
+                stopCamera();
+                updatePhotoPreview(file, 'Camera');
+                toast('Photo captured successfully.');
+            }, 'image/jpeg', 0.92);
+        });
+
+        closeCameraModal?.addEventListener('click', stopCamera);
+        cancelCameraBtn?.addEventListener('click', stopCamera);
+        cameraModal?.addEventListener('cancel', stopCamera);
+
+        const handleFileInput = (input, badge) => {
+            const file = input.files?.[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                toast('The tree photo must be no larger than 5 MB.');
+                input.value = '';
+                return;
+            }
+            selectedPhotoFile = file;
+            if (input === nativeCameraInput && treePhotoFileInput) {
+                try {
+                    if (window.DataTransfer) {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        treePhotoFileInput.files = dt.files;
+                    }
+                } catch {}
+            }
+            updatePhotoPreview(file, badge);
+        };
+
+        treePhotoFileInput?.addEventListener('change', () => handleFileInput(treePhotoFileInput, 'Uploaded'));
+        nativeCameraInput?.addEventListener('change', () => handleFileInput(nativeCameraInput, 'Camera'));
+        removePhotoBtn?.addEventListener('click', clearPhoto);
+
         const inlineRegion = form.closest('#contribution-form-region');
         const cancel = () => {
+            stopCamera();
+            clearPhoto();
             if (!inlineRegion) {
                 navigate('dashboard');
                 return;
@@ -1494,6 +1729,10 @@
 
             try {
                 const selectedSpecies = data.get('species_id');
+                const photoFile = (selectedPhotoFile && selectedPhotoFile.size)
+                    ? selectedPhotoFile
+                    : (data.get('tree_photo')?.size ? data.get('tree_photo') : null);
+
                 const result = await saveTreeToDatabase({
                     // Required action fields
                     actionType: data.get('action_type'),
@@ -1516,9 +1755,11 @@
                     // Optional condition
                     status: data.get('tree_status') || 'Healthy',
                     age:    null,
-                    photo:  data.get('tree_photo')?.size ? data.get('tree_photo') : null,
+                    photo:  photoFile,
                 });
 
+                stopCamera();
+                clearPhoto();
                 await navigate('map');
                 await loadMyContributions();
                 const isApproved = result.approvalStatus === 'Approved';

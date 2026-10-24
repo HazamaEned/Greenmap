@@ -132,11 +132,51 @@
                 </select>
             </label>
 
-            <label class="field">
-                Photo of the tree
-                <input name="tree_photo" type="file" accept="image/jpeg,image/png,image/webp">
-                <small>Optional. JPG, PNG, or WebP, up to 5 MB. A clear photo speeds up CENRO assessment.</small>
-            </label>
+            <div class="field photo-field-container">
+                <span>Photo of the tree (optional)</span>
+                <div class="photo-capture-options">
+                    <label class="photo-btn file-btn" for="tree-photo-input" tabindex="0" role="button" aria-label="Upload image from device">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span>Upload Image</span>
+                    </label>
+                    <input id="tree-photo-input" name="tree_photo" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" class="visually-hidden">
+
+                    <button type="button" class="photo-btn camera-btn" id="open-camera-btn" aria-label="Open device camera">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                        <span>Open Camera</span>
+                    </button>
+
+                    <input id="tree-photo-native-camera" type="file" accept="image/*" capture="environment" class="visually-hidden">
+                </div>
+
+                <div id="photo-preview-card" class="photo-preview-card hidden">
+                    <div class="photo-preview-thumb">
+                        <img id="photo-preview-img" src="" alt="Tree photo preview">
+                    </div>
+                    <div class="photo-preview-details">
+                        <div class="photo-preview-title" id="photo-preview-name">tree-photo.jpg</div>
+                        <div class="photo-preview-sub">
+                            <span class="photo-badge" id="photo-preview-badge">Uploaded</span>
+                            <span id="photo-preview-size">0 KB</span>
+                        </div>
+                    </div>
+                    <button type="button" id="remove-photo-btn" class="photo-remove-btn" title="Remove photo" aria-label="Remove photo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <small id="photo-input-hint">Optional. JPG, PNG, or WebP, up to 5 MB. A clear photo speeds up CENRO assessment.</small>
+            </div>
         </section>
 
         <section class="form-section">
@@ -170,4 +210,36 @@
             <button type="submit" class="primary-action">Submit Report</button>
         </div>
     </form>
+
+    <dialog id="camera-modal" class="camera-modal" aria-label="Device Camera">
+        <div class="camera-modal-view">
+            <div class="camera-modal-header">
+                <h3>Take Tree Photo</h3>
+                <button type="button" id="close-camera-modal" class="camera-modal-close" aria-label="Close camera">&times;</button>
+            </div>
+            <div class="camera-viewfinder-wrapper">
+                <video id="camera-video-feed" autoplay playsinline muted></video>
+                <canvas id="camera-snapshot-canvas" class="visually-hidden"></canvas>
+                <div id="camera-loading-indicator" class="camera-indicator">
+                    <div class="camera-spinner"></div>
+                    <span>Accessing camera…</span>
+                </div>
+                <div id="camera-error-message" class="camera-indicator camera-error-state hidden">
+                    <p id="camera-error-text">Camera access unavailable or blocked.</p>
+                    <button type="button" id="camera-system-fallback-btn" class="secondary-action">Use System Camera / File Picker</button>
+                </div>
+            </div>
+            <div class="camera-modal-controls">
+                <button type="button" id="switch-camera-lens-btn" class="camera-lens-btn" title="Flip / Switch Camera" aria-label="Switch camera" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21.896 4.21 2.343 5.657L4 18h6v-6l-2.343 2.343C6.602 13.284 6 11.716 6 10c0-3.314 2.686-6 6-6s6 2.686 6 6c0 1.716-.602 3.284-1.657 4.343l1.414 1.414C19.104 14.21 20 12.21 20 10z"/>
+                    </svg>
+                </button>
+                <button type="button" id="take-snapshot-btn" class="camera-shutter-trigger" aria-label="Take Photo">
+                    <span class="shutter-circle"></span>
+                </button>
+                <button type="button" id="cancel-camera-capture" class="secondary-action camera-cancel-action">Cancel</button>
+            </div>
+        </div>
+    </dialog>
 </section>

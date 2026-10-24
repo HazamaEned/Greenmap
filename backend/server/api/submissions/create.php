@@ -76,12 +76,53 @@ if ($hasPhotoUpload) {
     }
 
     $allowedPhotoTypes = [
-        'image/jpeg' => 'jpg',
-        'image/png'  => 'png',
-        'image/webp' => 'webp',
+        'image/jpeg'  => 'jpg',
+        'image/pjpeg' => 'jpg',
+        'image/jpg'   => 'jpg',
+        'image/png'   => 'png',
+        'image/x-png' => 'png',
+        'image/webp'  => 'webp',
     ];
-    $photoMime      = (new finfo(FILEINFO_MIME_TYPE))->file($photoUpload['tmp_name']);
+    $photoMime = null;
+    if (class_exists('finfo')) {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detected = $finfo->file($photoUpload['tmp_name']);
+        if (is_string($detected)) {
+            $photoMime = strtolower($detected);
+        }
+    } elseif (function_exists('mime_content_type')) {
+        $detected = mime_content_type($photoUpload['tmp_name']);
+        if (is_string($detected)) {
+            $photoMime = strtolower($detected);
+        }
+    }
+    if (!$photoMime && !empty($photoUpload['type'])) {
+        $photoMime = strtolower((string) $photoUpload['type']);
+    }
+
     $photoExtension = $allowedPhotoTypes[$photoMime] ?? null;
+
+    if ($photoExtension === null && function_exists('exif_imagetype')) {
+        $imageType = @exif_imagetype($photoUpload['tmp_name']);
+        if ($imageType === IMAGETYPE_JPEG) {
+            $photoExtension = 'jpg';
+        } elseif ($imageType === IMAGETYPE_PNG) {
+            $photoExtension = 'png';
+        } elseif ($imageType === IMAGETYPE_WEBP) {
+            $photoExtension = 'webp';
+        }
+    }
+
+    if ($photoExtension === null) {
+        $originalExt = strtolower(pathinfo($photoUpload['name'] ?? '', PATHINFO_EXTENSION));
+        if (in_array($originalExt, ['jpg', 'jpeg'], true)) {
+            $photoExtension = 'jpg';
+        } elseif ($originalExt === 'png') {
+            $photoExtension = 'png';
+        } elseif ($originalExt === 'webp') {
+            $photoExtension = 'webp';
+        }
+    }
 
     if ($photoExtension === null) {
         http_response_code(422);
@@ -344,7 +385,7 @@ try {
         unlink($uploadedPhotoPath);
     }
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Unable to save the tree action report.']);
+    echo json_encode(['success' => false, 'message' => 'Unable to save the tree action report: ' . $exception->getMessage()]);
 }
 
 
