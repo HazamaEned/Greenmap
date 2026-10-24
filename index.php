@@ -88,16 +88,21 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="sidebar-user" id="sidebar-user">
-                    <div class="user-info">
-                        <span class="user-avatar" aria-hidden="true">&#128100;</span>
-                        <div class="user-meta">
-                            <strong id="welcome-user">Guest</strong>
-                            <small id="user-role-label">Public Access</small>
+                <div class="drawer-user" id="drawer-user">
+                    <div class="drawer-user-info">
+                        <span class="drawer-avatar-badge" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </span>
+                        <div class="drawer-user-meta">
+                            <strong class="drawer-user-name user-name-display">Guest</strong>
+                            <span class="drawer-user-role user-role-badge">Public Access</span>
                         </div>
                     </div>
-                    <button id="login-trigger" class="user-auth-btn" type="button">Login</button>
-                    <button id="logout-button" class="user-auth-btn logout-action-btn hidden" type="button" title="Log out">
+                    <button id="drawer-login-trigger" class="drawer-auth-btn login-btn" type="button">Login</button>
+                    <button id="drawer-logout-button" class="drawer-auth-btn logout-btn hidden" type="button" title="Log out">
                         <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3"></path>
                             <polyline points="10 11 13 8 10 5"></polyline>
@@ -125,6 +130,29 @@
                     <h2 id="page-title">Map</h2>
                 </div>
                 <div class="topbar-actions">
+                    <div class="topbar-user" id="topbar-user">
+                        <div class="topbar-user-info hidden" id="topbar-user-info">
+                            <span class="user-avatar-badge" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                            </span>
+                            <div class="topbar-user-meta">
+                                <strong class="user-name-display" id="welcome-user">Guest</strong>
+                                <span class="user-role-badge" id="user-role-label">Public Access</span>
+                            </div>
+                        </div>
+                        <button id="login-trigger" class="auth-btn login-btn" type="button">Admin Login</button>
+                        <button id="logout-button" class="auth-btn logout-btn hidden" type="button" title="Log out">
+                            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3"></path>
+                                <polyline points="10 11 13 8 10 5"></polyline>
+                                <line x1="13" y1="8" x2="5" y2="8"></line>
+                            </svg>
+                            <span>Log out</span>
+                        </button>
+                    </div>
                     <button class="issue-btn" type="button">Report Issue</button>
                 </div>
             </header>

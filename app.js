@@ -329,21 +329,20 @@
     }
 
     function setupLogoutButton() {
-        const button = $('#logout-button');
-        if (!button) return;
-
-        button.onclick = async () => {
-            try {
-                await logout();
-                databaseContributions = [];
-                applyRoleVisibility(); // Hides admin-only nav items again.
-                welcome(); // Now shows "Welcome, Guest".
-                await navigate('map');
-                toast('Logged out.');
-            } catch (error) {
-                toast(error.message);
-            }
-        };
+        $$('.logout-btn, #logout-button, #drawer-logout-button').forEach(button => {
+            button.onclick = async () => {
+                try {
+                    await logout();
+                    databaseContributions = [];
+                    applyRoleVisibility();
+                    welcome();
+                    await navigate('map');
+                    toast('Logged out.');
+                } catch (error) {
+                    toast(error.message);
+                }
+            };
+        });
     }
 
     // --- Species -------------------------------------------------------------
@@ -2020,14 +2019,28 @@
     }
 
     function welcome() {
-        const el = $('#welcome-user');
-        if (el) el.textContent = currentUser?.name || 'Guest';
-        const roleEl = $('#user-role-label');
-        if (roleEl) {
-            roleEl.textContent = currentUser
-                ? (currentUser.role === 'superadmin' ? 'Superadmin' : 'Administrator')
-                : 'Public Access';
-        }
+        const isAuth = isLoggedIn();
+        const displayName = isAuth ? (currentUser?.name || 'Administrator') : 'Guest';
+        const displayRole = isAuth
+            ? (currentUser?.role === 'superadmin' ? 'Superadmin' : 'Administrator')
+            : 'Public Access';
+        const roleClass = currentUser?.role === 'superadmin'
+            ? 'role-superadmin'
+            : (currentUser?.role === 'admin' ? 'role-admin' : 'role-guest');
+
+        $$('.user-name-display, #welcome-user').forEach(el => {
+            el.textContent = displayName;
+        });
+
+        $$('.user-role-badge, #user-role-label').forEach(el => {
+            el.textContent = displayRole;
+            el.classList.remove('role-admin', 'role-superadmin', 'role-guest');
+            el.classList.add(roleClass);
+        });
+
+        $$('.topbar-user-info').forEach(el => {
+            el.classList.toggle('hidden', !isAuth);
+        });
     }
 
     function applyRoleVisibility() {
@@ -2038,9 +2051,13 @@
             element.classList.toggle('hidden', !isSuperadmin());
         });
 
-        // Toggle login/logout buttons based on auth state.
-        $('#login-trigger')?.classList.toggle('hidden', isLoggedIn());
-        $('#logout-button')?.classList.toggle('hidden', !isLoggedIn());
+        // Ensure ONLY ONE button is visible at all times
+        $$('.login-btn, #login-trigger, #drawer-login-trigger').forEach(btn => {
+            btn.classList.toggle('hidden', isLoggedIn());
+        });
+        $$('.logout-btn, #logout-button, #drawer-logout-button').forEach(btn => {
+            btn.classList.toggle('hidden', !isLoggedIn());
+        });
     }
 
     $$('.menu li').forEach(item => {
@@ -2058,7 +2075,9 @@
         if (event.target === event.currentTarget) closeTreePhoto();
     });
     $('#gps-button')?.addEventListener('click', () => locate());
-    $('#login-trigger')?.addEventListener('click', showLoginScreen);
+    $$('.login-btn, #login-trigger, #drawer-login-trigger').forEach(trigger => {
+        trigger.addEventListener('click', showLoginScreen);
+    });
     // Show the report dialog when the topbar button is clicked. If the dialog
     // is not available, fall back to the full report page.
     $('.issue-btn')?.addEventListener('click', () => {
