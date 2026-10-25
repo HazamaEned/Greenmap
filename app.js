@@ -1956,10 +1956,27 @@
                             && item.submittedBy.id !== currentUser.id;
                         const canMarkComplete = item.approvalStatus === 'Approved' && !isCompleted;
 
-                        // Reporter contact (only superadmin sees this)
-                        const reporterContact = item.reporterContact
-                            ? `<small title="Reporter contact">📞 ${escapeHtml(item.reporterContact)}</small>`
-                            : '';
+                        // Submitter name & contact
+                        const reporterName = (item.reporterName && item.reporterName.trim())
+                            || (item.submittedBy?.name && item.submittedBy.name !== 'Anonymous' ? item.submittedBy.name.trim() : '')
+                            || item.submittedBy?.name
+                            || 'Anonymous';
+
+                        const contact = item.reporterContact?.trim() || '';
+                        const email   = item.submittedBy?.email?.trim() || '';
+
+                        const contactLines = [];
+                        if (contact) {
+                            const icon = contact.includes('@') ? '✉️' : '📞';
+                            contactLines.push(`<small title="Reporter contact">${icon} ${escapeHtml(contact)}</small>`);
+                        }
+                        if (email && email.toLowerCase() !== contact.toLowerCase()) {
+                            contactLines.push(`<small title="Account email">✉️ ${escapeHtml(email)}</small>`);
+                        }
+                        if (!contactLines.length) {
+                            contactLines.push('<small class="text-muted">No contact provided</small>');
+                        }
+                        const contactHtml = contactLines.join('');
 
                         const actions = canReview
                             ? `<button class="approve-action" data-review-id="${item.submissionId}" data-decision="Approved">Approve</button>
@@ -1979,9 +1996,8 @@
                                     <small><span class="priority-badge priority-${priority.toLowerCase()}">${escapeHtml(priority)}</span></small>
                                 </td>
                                 <td>
-                                    ${escapeHtml(item.submittedBy.name)}
-                                    <small>${escapeHtml(item.submittedBy.email)}</small>
-                                    ${reporterContact}
+                                    <strong>${escapeHtml(reporterName)}</strong>
+                                    ${contactHtml}
                                 </td>
                                 <td title="${escapeHtml(reason)}">${escapeHtml(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}</td>
                                 <td>${escapeHtml(address)}${areaBadge}</td>

@@ -35,6 +35,8 @@ try {
         tree_submissions.approval_status,
         ' . $areaTypeSelect . '
         tree_submissions.operational_status,
+        tree_submissions.reporter_name,
+        tree_submissions.reporter_contact,
         users.name AS added_by
     FROM tree_data
     INNER JOIN species
@@ -58,6 +60,10 @@ try {
     $trees  = [];
 
     while ($row = $result->fetch_assoc()) {
+        $submitterName = !empty(trim((string) ($row['reporter_name'] ?? '')))
+            ? trim((string) $row['reporter_name'])
+            : ($row['added_by'] ?? 'Anonymous');
+
         $trees[] = [
             'treeId'            => (int) $row['tree_id'],
             'submissionId'      => (int) ($row['submission_id'] ?? 0),
@@ -80,7 +86,9 @@ try {
             'latitude'          => (float) $row['latitude'],
             'longitude'         => (float) $row['longitude'],
             'submittedAt'       => $row['submitted_at'],
-            'addedBy'           => $row['added_by'],
+            'addedBy'           => $submitterName,
+            'reporterName'      => $row['reporter_name'] ?? null,
+            'reporterContact'   => $row['reporter_contact'] ?? null,
         ];
     }
 

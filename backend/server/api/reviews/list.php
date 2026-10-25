@@ -78,6 +78,10 @@ try {
 
     $submissions = [];
     while ($row = $result->fetch_assoc()) {
+        $submitterName = !empty(trim((string) ($row['reporter_name'] ?? '')))
+            ? trim((string) $row['reporter_name'])
+            : (!empty($row['submitted_by_name']) ? $row['submitted_by_name'] : 'Anonymous');
+
         $submissions[] = [
             'submissionId'      => (int) $row['submission_id'],
             'treeId'            => (int) $row['tree_id'],
@@ -106,7 +110,7 @@ try {
             'reviewedBy'     => $row['reviewed_by_name'],
             'submittedBy'    => [
                 'id'    => $row['submitted_by_id'] ? (int) $row['submitted_by_id'] : null,
-                'name'  => $row['submitted_by_name']  ?? 'Anonymous',
+                'name'  => $submitterName,
                 'email' => $row['submitted_by_email'] ?? '',
             ],
         ];
