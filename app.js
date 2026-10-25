@@ -229,6 +229,88 @@
         });
     }
 
+    /**
+     * Shows a modal dialog prompting the user for a denial reason.
+     * The reason is required and cannot be submitted empty.
+     * @param {string} [title='Deny Report']
+     * @param {string} [message]
+     * @returns {Promise<string|null>} Resolves with the non-empty denial reason, or null if cancelled.
+     */
+    function showDenyDialog(title = 'Deny Report', message = 'Please provide a reason why this report is being denied. This reason will be visible to the submitting administrator.') {
+        const dialog = $('#deny-dialog');
+        if (!dialog) {
+            let reason = prompt(`${title}\n\n${message}\n\nEnter denial reason (required):`);
+            if (reason === null) return Promise.resolve(null);
+            reason = reason.trim();
+            while (!reason) {
+                alert('A reason for denial is required.');
+                reason = prompt('Enter denial reason (required):');
+                if (reason === null) return Promise.resolve(null);
+                reason = reason.trim();
+            }
+            return Promise.resolve(reason);
+        }
+
+        const titleEl = $('#deny-dialog-title', dialog);
+        const msgEl = $('#deny-dialog-message', dialog);
+        const formEl = $('#deny-dialog-form', dialog);
+        const reasonInput = $('#deny-dialog-reason', dialog);
+        const errorEl = $('#deny-dialog-error', dialog);
+        const cancelBtn = $('#deny-dialog-cancel', dialog);
+
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = message;
+        if (reasonInput) reasonInput.value = '';
+        if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.style.display = 'none';
+        }
+
+        dialog.showModal();
+        if (reasonInput) {
+            setTimeout(() => reasonInput.focus(), 50);
+        }
+
+        return new Promise(resolve => {
+            const handleCancel = () => {
+                cleanup();
+                dialog.close();
+                resolve(null);
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const reason = (reasonInput?.value || '').trim();
+                if (!reason) {
+                    if (errorEl) {
+                        errorEl.textContent = 'A reason for denial is required before proceeding.';
+                        errorEl.style.display = 'block';
+                    }
+                    reasonInput?.focus();
+                    return;
+                }
+                cleanup();
+                dialog.close();
+                resolve(reason);
+            };
+
+            const handleClose = () => {
+                cleanup();
+                resolve(null);
+            };
+
+            function cleanup() {
+                cancelBtn?.removeEventListener('click', handleCancel);
+                formEl?.removeEventListener('submit', handleSubmit);
+                dialog.removeEventListener('close', handleClose);
+            }
+
+            cancelBtn?.addEventListener('click', handleCancel);
+            formEl?.addEventListener('submit', handleSubmit);
+            dialog.addEventListener('close', handleClose);
+        });
+    }
+
     function applyTheme(theme, persist = false) {
         const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
         document.documentElement.dataset.theme = normalizedTheme;
@@ -468,13 +550,14 @@
         return result.submissions;
     }
 
-    async function reviewSubmission(submissionId, decision) {
+    async function reviewSubmission(submissionId, decision, rejectionReason = '') {
         return apiRequest('reviews/update.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 submission_id: submissionId,
                 decision,
+                rejection_reason: rejectionReason,
             }),
         });
     }
@@ -856,11 +939,12 @@
 
         // Action type badge
         const isPending  = (tree.approvalStatus || 'Approved') === 'Pending';
+        const isDenied   = (tree.approvalStatus === 'Rejected' || tree.approvalStatus === 'Denied');
         const actionType = tree.actionType || '';
         const priority   = tree.priority   || 'Moderate';
         const address    = tree.address    || '';
         const reason     = tree.reason     || '';
-        const color      = isPending ? '#ca8a04' : (ACTION_COLORS[actionType] || 'var(--primary)');
+        const color      = isPending ? '#ca8a04' : (isDenied ? '#dc2626' : (ACTION_COLORS[actionType] || 'var(--primary)'));
 
         const nameEl = $('#tree-name');
         if (nameEl) nameEl.textContent = address || tree.species?.commonName || 'Tree Action Report';
@@ -869,6 +953,8 @@
         if (actionEl) {
             if (isPending) {
                 actionEl.innerHTML = `<span class="action-badge action-pending" style="background:#ca8a04; color:#fff; font-weight:700;" title="Awaiting Superadmin Review">❓ Under Review (${escapeHtml(actionType || 'Report')})</span>`;
+            } else if (isDenied) {
+                actionEl.innerHTML = `<span class="action-badge action-denied" style="background:#dc2626; color:#fff; font-weight:700;" title="Report Denied">⛔ Denied (${escapeHtml(actionType || 'Report')})</span>`;
             } else {
                 actionEl.innerHTML = `<span class="action-badge action-${(actionType || 'unknown').toLowerCase()}" style="background:${color}">${escapeHtml(ACTION_ICON_EMOJI[actionType] || '🌿')} ${escapeHtml(actionType || 'Unknown')}</span>`;
             }
@@ -897,6 +983,18 @@
 
         const reasonEl = $('#tree-reason');
         if (reasonEl) reasonEl.textContent = reason ? `Reason: ${reason}` : '';
+
+        const denialReasonEl = $('#tree-denial-reason');
+        const denialReasonTextEl = $('#tree-denial-reason-text');
+        if (denialReasonEl && denialReasonTextEl) {
+            if (isDenied && tree.rejectionReason) {
+                denialReasonTextEl.textContent = tree.rejectionReason;
+                denialReasonEl.classList.remove('hidden');
+            } else {
+                denialReasonTextEl.textContent = '';
+                denialReasonEl.classList.add('hidden');
+            }
+        }
 
         const addedByEl = $('#tree-addedby');
         const addedBy = tree.addedBy || tree.submittedBy?.name || 'Unknown';
@@ -1317,7 +1415,8 @@
                 const label = ACTION_ICON_EMOJI[actionType]
                     ? `${ACTION_ICON_EMOJI[actionType]} ${actionType}`
                     : actionType;
-                const approvalTag = tree.approvalStatus ? ` · ${tree.approvalStatus}` : '';
+                const statusDisplay = (tree.approvalStatus === 'Rejected' || tree.approvalStatus === 'Denied') ? 'Denied' : tree.approvalStatus;
+                const approvalTag = tree.approvalStatus ? ` · ${statusDisplay}` : '';
                 return `<li>
                     <span>${escapeHtml(tree.address || tree.species?.commonName || 'Tree')}</span>
                     <small>${escapeHtml(label)}${escapeHtml(approvalTag)} · ${escapeHtml(submitted)}</small>
@@ -1907,13 +2006,21 @@
                     const submitted  = tree.submittedAt
                         ? new Date(tree.submittedAt.replace(' ', 'T')).toLocaleString()
                         : 'Unavailable';
+                    const isDenied    = tree.approvalStatus === 'Rejected' || tree.approvalStatus === 'Denied';
+                    const statusLabel = isDenied ? 'Denied' : tree.approvalStatus;
+                    const denialBox   = (isDenied && tree.rejectionReason)
+                        ? `<div class="denial-reason-box"><strong>Reason for Denial:</strong> ${escapeHtml(tree.rejectionReason)}</div>`
+                        : (isDenied ? `<div class="denial-reason-box"><strong>Reason for Denial:</strong> No reason specified.</div>` : '');
                     return `
-                    <tr>
+                    <tr class="${isDenied ? 'row-denied' : ''}">
                         <td><strong>${escapeHtml(emoji)} ${escapeHtml(actionType)}</strong></td>
                         <td><span class="priority-badge priority-${priority.toLowerCase()}">${escapeHtml(priority)}</span></td>
                         <td title="${escapeHtml(tree.reason || '')}">${escapeHtml(address)}${areaBadge}</td>
                         <td>${escapeHtml(submitted)}</td>
-                        <td><span class="status-badge status-${tree.approvalStatus.toLowerCase()}">${escapeHtml(tree.approvalStatus)}</span></td>
+                        <td>
+                            <span class="status-badge status-${tree.approvalStatus.toLowerCase()}">${escapeHtml(statusLabel)}</span>
+                            ${denialBox}
+                        </td>
                         <td>
                             <button data-view-submission="${tree.submissionId}">View on Map</button>
                         </td>
@@ -1989,14 +2096,19 @@
 
                         const actions = canReview
                             ? `<button class="approve-action" data-review-id="${item.submissionId}" data-decision="Approved">Approve</button>
-                               <button class="danger-link" data-review-id="${item.submissionId}" data-decision="Rejected">Reject</button>`
+                               <button class="danger-link" data-review-id="${item.submissionId}" data-decision="Rejected">Deny</button>`
                             : item.approvalStatus === 'Pending'
                                 ? '<small>Cannot review your own report</small>'
                                 : canMarkComplete
                                     ? `<button class="complete-action" data-complete-id="${item.submissionId}">✅ Mark Completed</button>`
                                     : `<small>Reviewed by ${escapeHtml(item.reviewedBy || 'Superadmin')}</small>`;
 
-                        const opStatusBadge = `<span class="op-status-badge op-${opStatus.toLowerCase()}">${escapeHtml(opStatus)}</span>`;
+                        const opStatusBadge   = `<span class="op-status-badge op-${opStatus.toLowerCase()}">${escapeHtml(opStatus)}</span>`;
+                        const isItemDenied    = item.approvalStatus === 'Rejected' || item.approvalStatus === 'Denied';
+                        const reviewStatusLabel = isItemDenied ? 'Denied' : item.approvalStatus;
+                        const reviewDenialBox = (isItemDenied && item.rejectionReason)
+                            ? `<div class="denial-reason-box"><strong>Denial reason:</strong> ${escapeHtml(item.rejectionReason)}</div>`
+                            : '';
 
                         return `
                             <tr class="${isCompleted ? 'row-completed' : ''}">
@@ -2011,23 +2123,36 @@
                                 <td title="${escapeHtml(reason)}">${escapeHtml(reason.length > 60 ? reason.slice(0, 60) + '…' : reason)}</td>
                                 <td>${escapeHtml(address)}${areaBadge}</td>
                                 <td>${opStatusBadge}</td>
-                                <td><span class="status-badge status-${item.approvalStatus.toLowerCase()}">${escapeHtml(item.approvalStatus)}</span></td>
+                                <td>
+                                    <span class="status-badge status-${item.approvalStatus.toLowerCase()}">${escapeHtml(reviewStatusLabel)}</span>
+                                    ${reviewDenialBox}
+                                </td>
                                 <td class="review-actions">${actions}</td>
                             </tr>
                         `;
                     }).join('')
                     : '<tr><td colspan="7" class="empty-state">No reports match this status.</td></tr>';
 
-                // Approve / Reject buttons
+                // Approve / Deny buttons
                 $$('[data-review-id]', body).forEach(button => {
                     button.onclick = async () => {
                         const decision = button.dataset.decision;
-                        const verb = decision === 'Approved' ? 'approve' : 'reject';
-                        if (!await showConfirmationDialog(`Are you sure you want to ${verb} this report?`, `${decision === 'Approved' ? 'Approve' : 'Reject'} Report`)) return;
+                        let rejectionReason = '';
+
+                        if (decision === 'Rejected' || decision === 'Denied') {
+                            const reason = await showDenyDialog(
+                                'Deny Report',
+                                'Please provide a reason why this report is being denied. This reason will be visible to the submitting administrator in their My Reports page.'
+                            );
+                            if (!reason) return; // User cancelled or entered empty reason
+                            rejectionReason = reason;
+                        } else {
+                            if (!await showConfirmationDialog('Are you sure you want to approve this report?', 'Approve Report')) return;
+                        }
 
                         button.disabled = true;
                         try {
-                            const result = await reviewSubmission(Number(button.dataset.reviewId), decision);
+                            const result = await reviewSubmission(Number(button.dataset.reviewId), decision, rejectionReason);
                             await loadDatabaseTrees();
                             toast(result.message);
                             await render();

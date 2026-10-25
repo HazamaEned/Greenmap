@@ -16,6 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 requireRole(['superadmin']);
 
 $status = trim((string) ($_GET['status'] ?? ''));
+if ($status === 'Denied') {
+    $status = 'Rejected';
+}
 $allowedStatuses = ['', 'Pending', 'Approved', 'Rejected'];
 if (!in_array($status, $allowedStatuses, true)) {
     http_response_code(422);
@@ -31,6 +34,13 @@ try {
     }
     $areaTypeSelect = $hasAreaType ? 'tree_submissions.area_type,' : "'Public' AS area_type,";
 
+    $hasRejectionReason = false;
+    $colCheckReason = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'rejection_reason'");
+    if ($colCheckReason && $colCheckReason->num_rows > 0) {
+        $hasRejectionReason = true;
+    }
+    $rejectionReasonSelect = $hasRejectionReason ? 'tree_submissions.rejection_reason,' : 'NULL AS rejection_reason,';
+
     $sql = 'SELECT
                 tree_submissions.submission_id,
                 tree_submissions.tree_id,
@@ -45,6 +55,7 @@ try {
                 tree_submissions.reason,
                 tree_submissions.address,
                 ' . $areaTypeSelect . '
+                ' . $rejectionReasonSelect . '
                 tree_submissions.reporter_name,
                 tree_submissions.reporter_contact,
                 tree_data.tree_photo,
@@ -91,6 +102,7 @@ try {
             'actionType'        => $row['action_type']        ?? null,
             'priority'          => $row['priority']           ?? null,
             'reason'            => $row['reason']             ?? null,
+            'rejectionReason'   => $row['rejection_reason']   ?? null,
             'address'           => $row['address']            ?? null,
             'areaType'          => $row['area_type']          ?? 'Public',
             'reporterName'      => $row['reporter_name']      ?? null,

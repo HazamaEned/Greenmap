@@ -23,6 +23,13 @@ try {
     }
     $areaTypeSelect = $hasAreaType ? 'tree_submissions.area_type,' : "'Public' AS area_type,";
 
+    $hasRejectionReason = false;
+    $colCheckReason = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'rejection_reason'");
+    if ($colCheckReason && $colCheckReason->num_rows > 0) {
+        $hasRejectionReason = true;
+    }
+    $rejectionReasonSelect = $hasRejectionReason ? 'tree_submissions.rejection_reason,' : 'NULL AS rejection_reason,';
+
     $statement = $conn->prepare(
         'SELECT
             tree_submissions.submission_id,
@@ -39,6 +46,7 @@ try {
             tree_submissions.reporter_name,
             tree_submissions.reporter_contact,
             ' . $areaTypeSelect . '
+            ' . $rejectionReasonSelect . '
             tree_data.tree_photo,
             tree_data.tree_status,
             tree_data.tree_age,
@@ -69,16 +77,17 @@ try {
     $contributions = [];
     while ($row = $result->fetch_assoc()) {
         $contributions[] = [
-            'submissionId'   => (int) $row['submission_id'],
-            'treeId'         => (int) $row['tree_id'],
-            'photo'          => $row['tree_photo'],
-            'status'         => $row['tree_status'],
-            'age'            => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
-            'actionType'     => $row['action_type'] ?? null,
-            'priority'       => $row['priority']    ?? null,
-            'reason'         => $row['reason']      ?? null,
-            'address'        => $row['address']     ?? null,
-            'areaType'       => $row['area_type']   ?? 'Public',
+            'submissionId'    => (int) $row['submission_id'],
+            'treeId'          => (int) $row['tree_id'],
+            'photo'           => $row['tree_photo'],
+            'status'          => $row['tree_status'],
+            'age'             => $row['tree_age'] !== null ? (int) $row['tree_age'] : null,
+            'actionType'      => $row['action_type'] ?? null,
+            'priority'        => $row['priority']    ?? null,
+            'reason'          => $row['reason']      ?? null,
+            'rejectionReason' => $row['rejection_reason'] ?? null,
+            'address'         => $row['address']     ?? null,
+            'areaType'        => $row['area_type']   ?? 'Public',
             'species'        => [
                 'speciesId'      => (int) $row['species_id'],
                 'commonName'     => $row['common_name'],

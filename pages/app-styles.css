@@ -681,7 +681,8 @@ html[data-theme="dark"] .topbar-actions .issue-btn {
     color: var(--green);
 }
 
-.status-rejected {
+.status-rejected,
+.status-denied {
     background: #f4d6d6;
     color: var(--red);
 }
@@ -2391,4 +2392,25 @@ html[data-theme="dark"] .camera-lens-btn:hover {
     background: #1f3327;
     border-color: var(--green);
     color: #55d093;
+}
+
+
+.denial-reason-box {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-left: 3px solid #e11d48;
+    padding: 5px 8px;
+    border-radius: 4px;
+    color: #9f1239;
+    word-break: break-word;
+}
+
+html[data-theme="dark"] .denial-reason-box {
+    background: #3c141a;
+    border-color: #881337;
+    border-left-color: #f43f5e;
+    color: #fecdd3;
 }

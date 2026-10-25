@@ -17,10 +17,20 @@ $reviewer = requireRole(['superadmin']);
 $data = json_decode(file_get_contents('php://input'), true);
 $submissionId = filter_var($data['submission_id'] ?? null, FILTER_VALIDATE_INT);
 $decision = (string) ($data['decision'] ?? '');
+if ($decision === 'Denied') {
+    $decision = 'Rejected';
+}
+$rejectionReason = trim((string) ($data['rejection_reason'] ?? ($data['reason'] ?? '')));
 
 if ($submissionId === false || $submissionId === null || $submissionId <= 0 || !in_array($decision, ['Approved', 'Rejected'], true)) {
     http_response_code(422);
     echo json_encode(['success' => false, 'message' => 'A valid submission and decision are required.']);
+    exit;
+}
+
+if ($decision === 'Rejected' && $rejectionReason === '') {
+    http_response_code(422);
+    echo json_encode(['success' => false, 'message' => 'A reason for denial is required before denying this entry.']);
     exit;
 }
 
@@ -58,13 +68,37 @@ try {
         exit;
     }
 
-    $update = $conn->prepare(
-        'UPDATE tree_submissions
-         SET approval_status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
-         WHERE submission_id = ? AND approval_status = \'Pending\''
-    );
+    // Ensure rejection_reason column exists
+    $hasRejectionReason = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM `tree_submissions` LIKE 'rejection_reason'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasRejectionReason = true;
+    } else {
+        try {
+            $conn->query("ALTER TABLE `tree_submissions` ADD COLUMN `rejection_reason` TEXT NULL DEFAULT NULL");
+            $hasRejectionReason = true;
+        } catch (Exception $e) {
+            $hasRejectionReason = false;
+        }
+    }
+
     $reviewerId = $reviewer['id'];
-    $update->bind_param('sii', $decision, $reviewerId, $submissionId);
+    if ($hasRejectionReason) {
+        $finalReason = ($decision === 'Rejected') ? $rejectionReason : null;
+        $update = $conn->prepare(
+            'UPDATE tree_submissions
+             SET approval_status = ?, rejection_reason = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+             WHERE submission_id = ? AND approval_status = \'Pending\''
+        );
+        $update->bind_param('ssii', $decision, $finalReason, $reviewerId, $submissionId);
+    } else {
+        $update = $conn->prepare(
+            'UPDATE tree_submissions
+             SET approval_status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+             WHERE submission_id = ? AND approval_status = \'Pending\''
+        );
+        $update->bind_param('sii', $decision, $reviewerId, $submissionId);
+    }
     $update->execute();
     $conn->commit();
     
@@ -74,12 +108,13 @@ try {
     // data into that main table. For now, the view used by 'trees/list.php'
     // handles this filtering.
 
-
+    $actionMsg = $decision === 'Rejected' ? 'denied' : 'approved';
     echo json_encode([
-        'success' => true,
-        'submissionId' => (int) $submissionId,
-        'approvalStatus' => $decision,
-        'message' => "Contribution {$decision}.",
+        'success'         => true,
+        'submissionId'    => (int) $submissionId,
+        'approvalStatus'  => $decision,
+        'rejectionReason' => ($decision === 'Rejected') ? $rejectionReason : null,
+        'message'         => "Report {$actionMsg} successfully.",
     ]);
 } catch (mysqli_sql_exception $exception) {
     $conn->rollback();
