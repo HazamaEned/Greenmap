@@ -2077,6 +2077,7 @@ html[data-theme="dark"] .location-boundary-status.invalid {
     height: 100%;
     object-fit: cover;
     display: block;
+    cursor: zoom-in;
 }
 
 .photo-preview-details {

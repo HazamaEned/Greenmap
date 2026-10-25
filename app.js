@@ -909,18 +909,21 @@
         $('.tree-popup').classList.remove('hidden');
     }
 
-    function openTreePhoto() {
+    function openTreePhoto(customSrc = null) {
         const source = $('#tree-img');
         const fullscreenImage = $('#fullscreen-tree-img');
         const dialog = $('#photo-viewer-dialog');
-        if (!source || !fullscreenImage || !dialog) return;
+        if (!fullscreenImage || !dialog) return;
+
+        const targetSrc = (typeof customSrc === 'string' && customSrc)
+            ? customSrc
+            : resolvePhotoUrl(selectedTreePhotoUrl || source?.src);
+        if (!targetSrc) return;
 
         fullscreenImage.onerror = null;
-        fullscreenImage.src = resolvePhotoUrl(selectedTreePhotoUrl || source.src);
-        fullscreenImage.alt = source.alt || 'Tree photo';
-        if (fullscreenImage.src) {
-            dialog.showModal();
-        }
+        fullscreenImage.src = targetSrc;
+        fullscreenImage.alt = source?.alt || 'Tree photo';
+        dialog.showModal();
     }
 
     function closeTreePhoto() {
@@ -1527,6 +1530,10 @@
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
         };
+
+        photoPreviewImg?.addEventListener('click', () => {
+            if (photoPreviewImg.src) openTreePhoto(photoPreviewImg.src);
+        });
 
         const updatePhotoPreview = (file, badgeText = 'Uploaded') => {
             if (previewObjectUrl) {
@@ -2524,7 +2531,9 @@
     $('#tree-photo-trigger')?.addEventListener('click', openTreePhoto);
     $('#close-photo-viewer')?.addEventListener('click', closeTreePhoto);
     $('#photo-viewer-dialog')?.addEventListener('click', event => {
-        if (event.target === event.currentTarget) closeTreePhoto();
+        if (event.target === event.currentTarget || event.target.classList.contains('photo-viewer-content')) {
+            closeTreePhoto();
+        }
     });
     $('#gps-button')?.addEventListener('click', () => locate());
     $$('.login-btn, #login-trigger, #drawer-login-trigger').forEach(trigger => {
