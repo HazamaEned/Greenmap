@@ -159,6 +159,9 @@ $allowedPriorities  = ['Urgent', 'High', 'Moderate', 'Low'];
 $allowedOrigins     = ['Native', 'Introduced', 'Unknown'];
 $allowedStatuses    = ['Healthy', 'Diseased', 'Dead', 'Removed'];
 
+$existingTreeId = filter_var($data['tree_id'] ?? null, FILTER_VALIDATE_INT);
+$isExistingTree = $existingTreeId !== false && $existingTreeId !== null && $existingTreeId > 0;
+
 $usesExistingSpecies = $speciesId !== false && $speciesId !== null && $speciesId > 0;
 $hasNoSpecies        = !$usesExistingSpecies && $commonName === '' && $scientificName === '';
 $validNewSpecies     = !$usesExistingSpecies && !$hasNoSpecies
@@ -174,7 +177,7 @@ if (
     !in_array($priority,   $allowedPriorities,  true) ||
     mb_strlen($reason)  > 1000 ||
     mb_strlen($address) > 255  ||
-    (!$usesExistingSpecies && !$hasNoSpecies && !$validNewSpecies) ||
+    (!$isExistingTree && !$usesExistingSpecies && !$hasNoSpecies && !$validNewSpecies) ||
     !in_array($treeStatus, $allowedStatuses, true) ||
     ($treeAge !== null && ($treeAge === false || $treeAge < 0 || $treeAge > 65535)) ||
     mb_strlen($treePhoto) > 255 ||
@@ -211,7 +214,25 @@ $uploadedPhotoPath = null;
 try {
     $conn->begin_transaction();
 
-    if ($hasNoSpecies) {
+    if ($isExistingTree) {
+        $treeCheck = $conn->prepare('SELECT tree_id, species_id, tree_photo, tree_status FROM tree_data WHERE tree_id = ? LIMIT 1');
+        $treeCheck->bind_param('i', $existingTreeId);
+        $treeCheck->execute();
+        $existingTreeRow = $treeCheck->get_result()->fetch_assoc();
+
+        if (!$existingTreeRow) {
+            $conn->rollback();
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'The selected tree does not exist.']);
+            exit;
+        }
+
+        $treeId = $existingTreeId;
+        $speciesId = (int) $existingTreeRow['species_id'];
+        if (!$hasPhotoUpload && empty($treePhoto)) {
+            $treePhoto = $existingTreeRow['tree_photo'];
+        }
+    } elseif ($hasNoSpecies) {
         // No species provided — use a generic placeholder row
         $speciesStatement = $conn->prepare(
             'INSERT INTO species (common_name, scientific_name, origin_status, description)
@@ -276,13 +297,21 @@ try {
         }
     }
 
-    $treeStatement = $conn->prepare(
-        'INSERT INTO tree_data (species_id, tree_photo, tree_status, tree_age)
-         VALUES (?, ?, ?, ?)'
-    );
-    $treeStatement->bind_param('issi', $speciesId, $treePhoto, $treeStatus, $treeAge);
-    $treeStatement->execute();
-    $treeId = $conn->insert_id;
+    if ($isExistingTree) {
+        if ($hasPhotoUpload) {
+            $updateTree = $conn->prepare('UPDATE tree_data SET tree_photo = ? WHERE tree_id = ?');
+            $updateTree->bind_param('si', $treePhoto, $treeId);
+            $updateTree->execute();
+        }
+    } else {
+        $treeStatement = $conn->prepare(
+            'INSERT INTO tree_data (species_id, tree_photo, tree_status, tree_age)
+             VALUES (?, ?, ?, ?)'
+        );
+        $treeStatement->bind_param('issi', $speciesId, $treePhoto, $treeStatus, $treeAge);
+        $treeStatement->execute();
+        $treeId = $conn->insert_id;
+    }
 
     $isSuperadmin   = ($user['role'] ?? '') === 'superadmin';
     $approvalStatus = $isSuperadmin ? 'Approved' : 'Pending';

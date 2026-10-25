@@ -742,6 +742,21 @@ html[data-theme="dark"] .topbar-user .logout-btn:hover {
     color: #ffffff;
 }
 
+.tree-popup .resubmit-btn {
+    grid-column: 1 / -1;
+    border-color: #059669;
+    background: #059669;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tree-popup .resubmit-btn:hover {
+    border-color: #047857;
+    background: #047857;
+}
+
 .gps-status {
     position: absolute;
     right: 18px;

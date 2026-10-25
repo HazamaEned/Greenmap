@@ -82,6 +82,7 @@
     let locationSource = 'Not requested';
     let userInsidePasig = null; // null = unknown, true = inside, false = outside
     let selectedTreePhotoUrl = '';
+    let selectedTreeForResubmit = null;
     let activeCameraStream = null;
 
     function resolvePhotoUrl(photo) {
@@ -418,6 +419,7 @@
     async function saveTreeToDatabase(tree) {
         const body = new FormData();
         // New action fields
+        if (tree.treeId)     body.append('tree_id', tree.treeId);
         if (tree.actionType) body.append('action_type', tree.actionType);
         if (tree.priority)   body.append('priority', tree.priority);
         if (tree.areaType)   body.append('area_type', tree.areaType);
@@ -904,6 +906,13 @@
         if (streetViewLink) {
             const coordinates = encodeURIComponent(`${tree.latitude},${tree.longitude}`);
             streetViewLink.href = `https://www.instantstreetview.com/s/${coordinates}`;
+        }
+
+        selectedTreeForResubmit = tree;
+        const resubmitBtn = $('#resubmit-tree-btn');
+        if (resubmitBtn) {
+            const isCompleted = tree.operationalStatus === 'Completed';
+            resubmitBtn.classList.toggle('hidden', !isCompleted);
         }
 
         $('.tree-popup').classList.remove('hidden');
@@ -2594,6 +2603,108 @@
                 toast(err.message || 'Could not submit report.');
             } finally {
                 if (submitButton) submitButton.disabled = false;
+            }
+        };
+    }
+
+    function openResubmitDialog() {
+        if (!selectedTreeForResubmit || selectedTreeForResubmit.operationalStatus !== 'Completed') {
+            return;
+        }
+        const dialog = $('#resubmit-dialog');
+        const form   = $('#resubmit-form');
+        if (!dialog || !form) return;
+
+        form.reset();
+
+        const tree = selectedTreeForResubmit;
+        const treeInfoEl = $('#resubmit-tree-info');
+        if (treeInfoEl) {
+            const speciesName = tree.species?.commonName || 'Tree';
+            const locationStr = tree.address || locationForTree(tree);
+            treeInfoEl.textContent = `${speciesName} · ${locationStr}`;
+        }
+
+        const idInput = $('#resubmit-tree-id');
+        if (idInput) idInput.value = tree.treeId;
+
+        const latInput = $('#resubmit-latitude');
+        if (latInput) latInput.value = tree.latitude;
+
+        const lonInput = $('#resubmit-longitude');
+        if (lonInput) lonInput.value = tree.longitude;
+
+        const addrInput = $('#resubmit-address');
+        if (addrInput) addrInput.value = tree.address || '';
+
+        const areaInput = $('#resubmit-area-type');
+        if (areaInput) areaInput.value = tree.areaType || 'Public';
+
+        // Restrict 'Move' to admins
+        const moveOption = $('#resubmit-move-option');
+        if (moveOption) {
+            moveOption.style.display = isAdmin() ? '' : 'none';
+        }
+
+        // Show guest fields only if not logged in
+        const guestFields = $('#resubmit-guest-fields');
+        if (guestFields) {
+            guestFields.classList.toggle('hidden', isLoggedIn());
+        }
+
+        dialog.showModal();
+    }
+
+    const resubmitForm = $('#resubmit-form');
+    if (resubmitForm) {
+        $('#cancel-resubmit')?.addEventListener('click', () => $('#resubmit-dialog')?.close());
+        $('#resubmit-tree-btn')?.addEventListener('click', openResubmitDialog);
+
+        resubmitForm.onsubmit = async event => {
+            event.preventDefault();
+            if (!resubmitForm.reportValidity()) return;
+
+            const submitBtn = resubmitForm.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                const formData = new FormData(resubmitForm);
+                const photoInput = $('#resubmit-photo-input');
+                const photoFile  = photoInput?.files?.[0] || null;
+
+                const result = await saveTreeToDatabase({
+                    treeId:          formData.get('tree_id'),
+                    actionType:      formData.get('action_type'),
+                    priority:        formData.get('priority'),
+                    reason:          formData.get('reason')?.trim(),
+                    address:         formData.get('address')?.trim(),
+                    areaType:        formData.get('area_type') || 'Public',
+                    lat:             Number(formData.get('latitude')),
+                    lon:             Number(formData.get('longitude')),
+                    reporterName:    formData.get('reporter_name')?.trim() || null,
+                    reporterContact: formData.get('reporter_contact')?.trim() || null,
+                    status:          selectedTreeForResubmit?.status || 'Healthy',
+                    photo:           photoFile,
+                });
+
+                $('#resubmit-dialog')?.close();
+                $('.tree-popup')?.classList.add('hidden');
+
+                await loadDatabaseTrees();
+                markers();
+
+                const isApproved = result?.approvalStatus === 'Approved';
+                showMapNotification(
+                    'Request Submitted',
+                    isApproved
+                        ? 'Your request has been approved and appears on the map.'
+                        : 'Your action request has been submitted and is awaiting superadmin review.'
+                );
+                toast('Action request submitted successfully.');
+            } catch (error) {
+                toast(error.message || 'Could not submit request.');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
             }
         };
     }

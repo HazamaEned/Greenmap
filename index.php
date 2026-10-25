@@ -210,6 +210,7 @@
                             <p id="tree-addedby">Reported by: –</p>
                             <div class="tree-popup-actions">
                                 <a id="view-streetview" class="primary" href="https://www.instantstreetview.com/" target="_blank" rel="noopener noreferrer">Street View</a>
+                                <button id="resubmit-tree-btn" class="resubmit-btn hidden" type="button">Resubmit Entry</button>
                                 <button id="close-tree-popup" type="button">Close</button>
                             </div>
                         </div>
@@ -232,6 +233,64 @@
             <img id="fullscreen-tree-img" alt="">
             <button id="close-photo-viewer" type="button" aria-label="Exit fullscreen photo">&times;</button>
         </div>
+    </dialog>
+
+    <dialog id="resubmit-dialog">
+        <form id="resubmit-form" class="dialog-view" style="max-width: 440px;">
+            <h2>Resubmit Tree Action</h2>
+            <p id="resubmit-tree-info" style="color: var(--muted); margin: -8px 0 12px; font-size: 0.9rem;"></p>
+            <input type="hidden" name="tree_id" id="resubmit-tree-id">
+            <input type="hidden" name="latitude" id="resubmit-latitude">
+            <input type="hidden" name="longitude" id="resubmit-longitude">
+            <input type="hidden" name="address" id="resubmit-address">
+            <input type="hidden" name="area_type" id="resubmit-area-type">
+
+            <label class="field">
+                <span>Action Type</span>
+                <select name="action_type" id="resubmit-action-type" required>
+                    <option value="Trim">✂️ Trim</option>
+                    <option value="Remove">🪓 Remove</option>
+                    <option value="Move" id="resubmit-move-option">🚛 Move</option>
+                </select>
+            </label>
+
+            <label class="field">
+                <span>Priority</span>
+                <select name="priority" id="resubmit-priority" required>
+                    <option value="Low">Low</option>
+                    <option value="Moderate" selected>Moderate</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                </select>
+            </label>
+
+            <label class="field">
+                <span>Reason for Action</span>
+                <textarea name="reason" id="resubmit-reason" rows="3" maxlength="1000" placeholder="e.g. Tree branches require trimming again..." required></textarea>
+            </label>
+
+            <div id="resubmit-guest-fields" class="hidden">
+                <label class="field">
+                    <span>Your Name (Optional)</span>
+                    <input type="text" name="reporter_name" id="resubmit-reporter-name" placeholder="Full name">
+                </label>
+                <label class="field">
+                    <span>Contact Info (Optional)</span>
+                    <input type="text" name="reporter_contact" id="resubmit-reporter-contact" placeholder="Mobile or email">
+                </label>
+            </div>
+
+            <label class="field">
+                <span>New Photo (Optional)</span>
+                <input type="file" name="tree_photo" id="resubmit-photo-input" accept="image/jpeg,image/png,image/webp">
+            </label>
+
+            <div class="dialog-actions">
+                <button type="button" id="cancel-resubmit">Cancel</button>
+                <button type="submit" class="primary-action">Submit Request</button>
+            </div>
+            <small style="color: var(--muted); font-size: 11px;">The new action request will be submitted for superadmin review.</small>
+        </form>
     </dialog>
 
     <dialog id="submission-success-dialog">
