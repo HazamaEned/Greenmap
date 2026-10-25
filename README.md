@@ -145,3 +145,4 @@ Add your deployed frontend URL to the CORS allow-list before deploying the backe
 Developed as a capstone project for Pasig City.
 
 ## License
+This project is licensed under the [MIT License](LICENSE).MIT License
